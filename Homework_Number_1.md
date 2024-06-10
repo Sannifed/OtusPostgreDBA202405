@@ -27,6 +27,7 @@
 ![Альт-текст](Images/HW1/6.png)
 
 *	выключить auto commit
+
 С этим пунктом я немного повозился, просто командой в терминале мне не удалось отключить AUTOCOMMIT.
 Пробовал команды:
 set AUTOCOMMIT OFF;
@@ -34,9 +35,17 @@ set AUTOCOMMIT OFF;
 и их вариации, но они не срабатывали.
 В итоге отключил через файл ~/.psqlrc, создав в нём запись:
 ![Альт-текст](Images/HW1/7.png)
+Просьба научить как это делается. И какой командой в терминале можно увидеть статус у AUTOCOMMIT (ON или OFF)?
 
+*	сделать
+
+в первой сессии новую таблицу и наполнить ее данными create table persons(id serial, first_name text, second_name text); insert into persons(first_name, second_name) values('ivan', 'ivanov'); insert into persons(first_name, second_name) values('petr', 'petrov'); commit;
 ![Альт-текст](Images/HW1/8.png)
+
+*	посмотреть текущий уровень изоляции: show transaction isolation level
 ![Альт-текст](Images/HW1/9.png)
+
+
 ![Альт-текст](Images/HW1/10.png)
 ![Альт-текст](Images/HW1/11.png)
 ![Альт-текст](Images/HW1/12.png)
