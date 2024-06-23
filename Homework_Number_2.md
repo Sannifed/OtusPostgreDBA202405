@@ -18,14 +18,14 @@
 ![Альт-текст](Images/HW2/11.png)
 
 На ней установлен Docker Engine
-![Альт-текст](Images/HW2/1.png)
+![Альт-текст](Images/HW2/01.png)
 
 Создан каталог /var/lib/postgres
-![Альт-текст](Images/HW2/2.png)
+![Альт-текст](Images/HW2/02.png)
 
 Создана docker-сеть и развернут контейнер с PostgreSQL 15.
-![Альт-текст](Images/HW2/3.png)
-![Альт-текст](Images/HW2/4.png)
+![Альт-текст](Images/HW2/03.png)
+![Альт-текст](Images/HW2/04.png)
 
 Установлен PostgreSQL. 
 Везде запущен psql из под пользователя postgres
