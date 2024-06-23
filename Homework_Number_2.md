@@ -23,7 +23,7 @@
 Создан каталог /var/lib/postgres
 ![Альт-текст](Images/HW2/02.png)
 
-Создана docker-сеть и развернут контейнер с PostgreSQL 15.
+Создана docker-сеть и развернут контейнер с PostgreSQL 15 (каталог с данными контейнера ((/var/lib/postgresql/data)) смонтирован в созданный каталог в ОС (/var/lib/postgres)).
 ![Альт-текст](Images/HW2/03.png)
 ![Альт-текст](Images/HW2/04.png)
 
