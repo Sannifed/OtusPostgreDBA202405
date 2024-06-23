@@ -27,22 +27,16 @@
 ![Альт-текст](Images/HW2/03.png)
 ![Альт-текст](Images/HW2/04.png)
 
-Установлен PostgreSQL. 
-Везде запущен psql из под пользователя postgres
-![Альт-текст](Images/HW1/5.png)
+Развернут контейнер с клиентом postgres
+![Альт-текст](Images/HW2/05.png)
 
-![Альт-текст](Images/HW1/6.png)
+Подключился из контейнера с клиентом к контейнеру с сервером, создал базу данных otus и таблицу в ней test с парой строк.
+![Альт-текст](Images/HW2/06.png)
+![Альт-текст](Images/HW2/07.png)
 
-*	**выключить auto commit**
+Подключится к контейнеру со своего домашнего ноутбука с Windows 11, преварительно установив на него PostgreSQL.
+![Альт-текст](Images/HW2/08.png)
 
-С этим пунктом я немного повозился, просто командой в терминале мне не удалось отключить AUTOCOMMIT.
-Пробовал команды:
-set AUTOCOMMIT OFF;
-\set AUTOCOMMIT OFF;
-и их вариации, но они не срабатывали.
-В итоге отключил через файл ~/.psqlrc, создав в нём запись:
-![Альт-текст](Images/HW1/7.png)
-Просьба научить как это делается. И какой командой в терминале можно увидеть статус у AUTOCOMMIT (ON или OFF)?
 
 *	**сделать
 в первой сессии новую таблицу и наполнить ее данными create table persons(id serial, first_name text, second_name text); insert into persons(first_name, second_name) values('ivan', 'ivanov'); insert into persons(first_name, second_name) values('petr', 'petrov'); commit;**
