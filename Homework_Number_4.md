@@ -83,6 +83,7 @@
 
 
 
+
 вернитесь в базу данных testdb под пользователем postgres.
 удалите таблицу t1.
 создайте ее заново но уже с явным указанием имени схемы testnm.
@@ -101,7 +102,6 @@ ALTER default privileges in SCHEMA testnm grant SELECT on TABLES to readonly;
 
 
 сделайте select * from testnm.t1;.
-![Альт-текст](Images/HW4/09.png)  
 получилось?
 - нет
 есть идеи почему? если нет - смотрите шпаргалку.
@@ -110,7 +110,8 @@ ALTER default privileges in SCHEMA testnm grant SELECT on TABLES to readonly;
 получилось?
 - да
 ура!
-- о, да
+- о, да  
+![Альт-текст](Images/HW4/09.png)  
 
 
 теперь попробуйте выполнить команду create table t2(c1 integer); insert into t2 values (2);.
