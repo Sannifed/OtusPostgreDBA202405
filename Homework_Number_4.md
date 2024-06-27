@@ -103,9 +103,9 @@
 
 сделайте select * from testnm.t1;.
 получилось?
-  нет
+--нет
 есть идеи почему? если нет - смотрите шпаргалку.
-  потому что ALTER default будет действовать для новых таблиц, а grant SELECT on all TABLEs in SCHEMA testnm TO readonly отработал только для существующих на тот момент времени. Надо сделать снова или grant SELECT или пересоздать таблицу.
+--потому что ALTER default будет действовать для новых таблиц, а grant SELECT on all TABLEs in SCHEMA testnm TO readonly отработал только для существующих на тот момент времени. Надо сделать снова или grant SELECT или пересоздать таблицу.
 сделайте select * from testnm.t1;
 получилось?
   да
