@@ -97,4 +97,7 @@ REVOKE ALL on DATABASE testdb FROM public;
 * **теперь попробуйте выполнить команду create table t3(c1 integer); insert into t2 values (2);.**  
 * **расскажите что получилось и почему.**  
 ![Альт-текст](Images/HW4/12.png)
+  _Теперь не даёт создавать таблицу, так как отобрали права на схему public и базу данных testdb у роли public.  
+  что бы создать таблицу нужно указывать нашу схему testnm в команде создания или добавить схему testnm в search_path (привести к виду "$user", testnm, public)_  
+  
 
