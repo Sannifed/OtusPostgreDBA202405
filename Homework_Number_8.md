@@ -44,7 +44,7 @@ _Включил синхронный режим обратно и перешёл
 _Данный шаг мне удалось выполнить только такой командой: sysbench --db-driver=pgsql --table-size=100000 --tables=24 --threads=1 --pgsql-host=localhost --pgsql-port=5432 --pgsql-user=postgres --pgsql-password=123 --pgsql-db=sbtest /usr/share/sysbench/oltp_read_write.lua prepare и под пользователем postgres, с доступом пользователя я потом разобрался, а команду в инструкции видимо нужно актуализировать._  
 ![Альт-текст](Images/HW8/12.png)  
 ![Альт-текст](Images/HW8/13.png)  
-_На данном шаге так же команда из инструкции не срабатывала, я запстил так:  
+_На данном шаге так же команда из инструкции не срабатывала, я запустил так:  
 sysbench \  
 --db-driver=pgsql \  
 --report-interval=2 \  
