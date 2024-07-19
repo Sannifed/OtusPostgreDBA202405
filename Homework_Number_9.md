@@ -33,6 +33,6 @@
 ![Альт-текст](Images/HW9/13.png)  
 ![Альт-текст](Images/HW9/14.png)
 ![Альт-текст](Images/HW9/14_05.png)  
-![Альт-текст](Images/HW9/15.png)  
-![Альт-текст](Images/HW9/16.png)  
+![Альт-текст](Images/HW9/08.png)  
+![Альт-текст](Images/HW9/09.png)  
 ![Альт-текст](Images/HW9/17.png)  
