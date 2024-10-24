@@ -1,0 +1,3545 @@
+
+
+(02.10.2024)
+
+Инсталлятор PostgreSQL взят с https://www.enterprisedb.com/downloads/postgres-postgresql-downloads
+Версия 16.4
+Лежит в загрузках (postgresql-16.4-1-windows-x64.exe)
+При установке указал пароль суперюзеру
+Пользователь - postgres
+Пароль       - ***
+После установки сервера PostgreSQL стартовал Stack Builder 4.2.1 и доустановил pgAgent
+Для pgAgent пришлось создать системного пользователя с правами администратора и указать его данные при установке (Иначе установщик выдаёт ошибки)
+Пользователь - postgres
+Пароль       - ***
+
+
+Начало работы:
+
+Перед прогоном скриптов нужно создать БД (назвал finline)(Иначе полезут ошибки):
+CREATE DATABASE finline;
+
+
+Дорожная карта:
+
+ 1) D-05.000 - начальная версия, не предназначенная для промышленной эксплуатации
+ 2) D-06.000 - добавлено логирование успешной доставки сообщений, логирование завершения работы КМ,
+               логирование нешатных ситуаций Шлюза на стороне Сбербанка,
+               (версия КМ D-06.001 не принята в промышленную эксплуатацию и не распространялась)
+ 3) D-06.002 - изменения для передачи заявок на инкассацию
+ 4) D-06.003 - изменения для поиска документа UI по имени файла, версия КМ D-06.003 не распространялась
+ 5) D-07.000 - дополнен справочник событий, версия КМ D-07.000 не распространялась
+ 6) D-07.001 - изменения для фильтрации дубликатов сообщений
+ 7) D-07.002 - изменения для передачи чеков на инкассацию
+ 8) D-07.004 - изменения для потока повторной отправки документов в Сбербанк, на которые не было получено ответа со стороны Сбербанка
+               (версия D-07.003 не требовала изменений в БД и не распространялась)
+ 9) D-07.005 - версия не требует изменений в БД и не распространялась среди клиентов ЛОРО счетов
+ 10) D-07.006 - версия не требует изменений в БД и не распространялась среди клиентов ЛОРО счетов
+ 11) D-07.007 - безопасный обмен сообщениями с помощью LAU ключевания
+ 12) D-07.008 - версия не требует изменений в БД
+ 13) D-07.009 - версия не требует изменений в БД и не распространяется среди клиентов ЛОРО счетов
+ 14) D-07.010 - версия не требует изменений в БД и не распространяется среди клиентов ЛОРО счетов
+ 15) D-07.011 - версия не распространяется среди клиентов использующих КМ на WEB сервисах
+ 16) D-08.000 - Проверка на дубли квитанций
+
+
+
+C:\Users\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-05.000\setup.cmd
+
+Содержимое файла cmd (После моих правок):
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с машины на которой установлена клиенская часть PostgreSQL либо непосредственно на сервере СУБД
+rem
+rem ВНИМАНИЕ перед установкой необходимо:
+rem      на сервере БД создать каталоги в которых будет размещаться файлы базы данных PostgreSQL и заполнить этими значениями параметры данного файла
+rem      в данном файле отредактировать строки с переменными окружения, выставить нужные значения
+rem Смысл параметров
+rem POSTGRESQL_HOME     - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem TABLESPACE_LOG_DATA - Путь к папке с tablespace для данных оперативной БД логирования в файловой системе сервера БД ! Учетная запись под которой работает сервер PostgreSQL должна иметь права для чтения и записи по данному пути!
+rem TABLESPACE_LOG_INDX - Путь к папке с tablespace для индексов оперативной БД логирования в файловой системе сервера БД ! Учетная запись под которой работает сервер PostgreSQL должна иметь права для чтения и записи по данному пути!
+rem TABLESPACE_LOG_LOB  - Путь к папке с tablespace для больших объектов оперативной БД логирования в файловой системе сервера БД ! Учетная запись под которой работает сервер PostgreSQL должна иметь права для чтения и записи по данному пути!
+rem TABLESPACE_ARC_DATA - Путь к папке с tablespace для данных архивной БД логирования в файловой системе сервера БД ! Учетная запись под которой работает сервер PostgreSQL должна иметь права для чтения и записи по данному пути!
+rem TABLESPACE_ARC_INDX - Путь к папке с tablespace для индексов архивной БД логирования в файловой системе сервера БД ! Учетная запись под которой работает сервер PostgreSQL должна иметь права для чтения и записи по данному пути!
+rem TABLESPACE_ARC_LOB  - Путь к папке с tablespace для больших объектов архивной БД логирования в файловой системе сервера БД ! Учетная запись под которой работает сервер PostgreSQL должна иметь права для чтения и записи по данному пути!
+rem USERLOG        - Пользователь оперативной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem USERARC        - Пользователь архивной БД логирования
+rem PASSARC        - Пароль пользователя архивной БД логирования
+rem PASSADMIN      - Пароль администратора БД
+rem DBNAME         - Имя базы данных
+rem HOSTNAME       - Имя хоста на котором работает СУБД
+rem PORTNUM        - Номер порта для подключения к СУБД
+rem ADMINDB        - Имя пользователя администратора БД
+
+chcp 1251
+set TABLESPACE_LOG_DATA=D:\Base\LOG\DATA
+set TABLESPACE_LOG_INDX=D:\Base\LOG\INDX
+set TABLESPACE_LOG_LOB=D:\Base\LOG\LOB
+set TABLESPACE_ARC_DATA=D:\Base\ARC\DATA
+set TABLESPACE_ARC_INDX=D:\Base\ARC\INDX
+set TABLESPACE_ARC_LOB=D:\Base\ARC\LOB
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set USERLOG=*sslog
+set USERARC=*ssarc
+set PASSLOG=***
+set PASSARC=***
+set PASSADMIN=***
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set ADMINDB=postgres
+md logs
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%; %PATH%
+set PGPASSWORD=%PASSADMIN%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %ADMINDB% -L logs/create_sbaccessarc.log -f create_sbaccessarc.sql -v workrole=%USERARC% -v passwd='%PASSARC%' -v datatbs='%TABLESPACE_ARC_DATA%' -v indextbs='%TABLESPACE_ARC_INDX%' -v lobtbs='%TABLESPACE_ARC_LOB%' -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSADMIN%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %ADMINDB% -L logs/create_sbaccesslog.log -f create_sbaccesslog.sql -v workrole=%USERLOG% -v passwd='%PASSLOG%' -v datatbs='%TABLESPACE_LOG_DATA%' -v indextbs='%TABLESPACE_LOG_INDX%' -v lobtbs='%TABLESPACE_LOG_LOB%' -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -v userlog='%USERLOG%' -v userarc='%USERARC%' -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -v userlog='%USERLOG%' -v userarc='%USERARC%' -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSADMIN%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %ADMINDB% -L logs/create_jobs.log -f create_jobs.sql -v userlog='%USERLOG%' -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=
+set PASSADMIN=
+set PASSLOG=
+set PASSARC=
+set POSTGRESQL_HOME=
+set TABLESPACE_LOG=
+set TABLESPACE_ARC=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set USERLOG=
+set ADMINDB=
+set USERARC=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+Анализ скриптов запускаемых данным cmd файлом:
+
+1
+create_sbaccessarc.sql
+-- создание пользователя sbaccessarc, схемы и табличных пространств, выполняется от пользователя postgres
+-- $psql -d <имя базы данных> -h <хост> -p <порт> -U postgres -L logs/create_sbaccessarc.log -f create_sbaccessarc.sql -v passwd='password' -v datatbs='D:\DatabaseCM\ARC\DATA' -v indextbs='D:\DatabaseCM\ARC\INDX' -v lobtbs='D:\DatabaseCM\ARC\LOB'
+\ir Users/user_all.sql
+\ir schema/schema_all.sql
+\ir TableSpaces/tbs_arc.sql
+\r
+
+1.1
+Users/user_all.sql
+SET client_encoding TO 'UTF8';
+CREATE ROLE :workrole WITH LOGIN PASSWORD :passwd;
+COMMENT ON ROLE :workrole IS 'BASE ROLE';
+
+1.2
+schema/schema_all.sql
+SET client_encoding TO 'UTF8';
+CREATE SCHEMA :workrole AUTHORIZATION :workrole;
+ALTER SCHEMA :workrole OWNER TO :workrole;
+
+1.3
+TableSpaces/tbs_arc.sql
+SET client_encoding TO 'UTF8';
+CREATE TABLESPACE ARCDATA OWNER :workrole LOCATION :datatbs;
+CREATE TABLESPACE ARCLOB OWNER :workrole LOCATION :lobtbs;
+CREATE TABLESPACE ARCINDX OWNER :workrole LOCATION :indextbs;
+
+2
+create_sbaccesslog.sql
+-- создание пользователя sbaccesslog, схемы и табличных пространств, выполняется от пользователя postgres
+-- $psql -d <имя базы данных> -h <хост> -p <порт> -U postgres -L logs/create_sbaccesslog.log -f create_sbaccesslog.sql -v passwd='password' -v datatbs='D:\DatabaseCM\LOG\DATA' -v indextbs='D:\DatabaseCM\LOG\INDX' -v lobtbs='D:\DatabaseCM\LOG\LOB'
+\ir Users/user_all.sql
+\ir schema/schema_all.sql
+\ir TableSpaces/tbs_log.sql
+\r
+
+2.1
+Users/user_all.sql
+SET client_encoding TO 'UTF8';
+CREATE ROLE :workrole WITH LOGIN PASSWORD :passwd;
+COMMENT ON ROLE :workrole IS 'BASE ROLE';
+
+2.2
+schema/schema_all.sql
+SET client_encoding TO 'UTF8';
+CREATE SCHEMA :workrole AUTHORIZATION :workrole;
+ALTER SCHEMA :workrole OWNER TO :workrole;
+
+2.3
+TableSpaces/tbs_log.sql
+SET client_encoding TO 'UTF8';
+CREATE TABLESPACE ARCDATA OWNER :workrole LOCATION :datatbs;
+CREATE TABLESPACE ARCLOB OWNER :workrole LOCATION :lobtbs;
+CREATE TABLESPACE ARCINDX OWNER :workrole LOCATION :indextbs;
+
+
+3
+SBACCESSARC/install_sbaccessarc.sql
+-- создание объектов в базу данных sbaccessarc выполняется от пользователя sbaccessarc который был создан в скрипте create_sbaccessarc.sql
+-- вызов:
+-- $psql -d <имя базы данных> -h <хост> -p <порт> -U sbaccessarc -L log/install_sbaccessarc.log -f install_sbaccessarc.sql
+\ir sequences/seq_cdeventcode.sql
+\ir sequences/seq_client_module_event.sql
+\ir tables/cdeventcode.sql
+\ir tables/client_module_events.sql
+\ir tables/dbversion.sql
+\ir views/v_client_module_events.sql
+\ir views/v_client_module_events_nacknak.sql
+\ir dml/event_code.sql
+\ir dml/insert_dbversion.sql
+\ir permissions.sql
+\r
+
+\ir sequences/seq_cdeventcode.sql:
+SET client_encoding TO 'UTF8';
+CREATE SEQUENCE seq_cdeventcode INCREMENT 1 MINVALUE 1 NO MAXVALUE START 1 CACHE 20;
+
+\ir sequences/seq_client_module_event.sql:
+SET client_encoding TO 'UTF8';
+CREATE SEQUENCE seq_client_module_event INCREMENT 1 MINVALUE 1 NO MAXVALUE START 1 CACHE 20;
+
+\ir tables/cdeventcode.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE cdeventcode (
+	event_code_id bigint NOT NULL,
+	event_code varchar(32) NOT NULL,
+	description varchar(256),
+	alert_flag varchar(4)
+) TABLESPACE ARCDATA;
+ALTER TABLE cdeventcode ADD PRIMARY KEY (event_code_id) using index tablespace ARCINDX;
+ALTER TABLE cdeventcode ADD UNIQUE (event_code) using index tablespace ARCINDX;
+
+\ir tables/client_module_events.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE client_module_events (
+	event_id bigint NOT NULL,
+	part_date timestamp NOT NULL,
+	eventtime timestamp NOT NULL,
+	messageid varchar(32),
+	correlationid varchar(32),
+	event_code_id bigint NOT NULL,
+	event_message varchar(1024),
+	f20 varchar(16),
+	f108 varchar(16),
+	bodymessage text,
+	exceptionflag smallint NOT NULL,
+	exceptionobject text,
+	messagetype smallint NOT NULL DEFAULT 0,
+	edno varchar(32),
+	eddate timestamp
+)
+partition by range (PART_DATE)
+TABLESPACE ARCDATA;
+COMMENT ON COLUMN client_module_events.exceptionflag IS E'Флаг ошибки';
+COMMENT ON COLUMN client_module_events.messageid IS E'Идентификатор сообщения';
+COMMENT ON COLUMN client_module_events.event_id IS E'Идентификатор события';
+COMMENT ON COLUMN client_module_events.part_date IS E'Поле дата для партицирования';
+COMMENT ON COLUMN client_module_events.eventtime IS E'Timestamp события';
+COMMENT ON COLUMN client_module_events.messagetype IS E'Тип сообщения';
+COMMENT ON COLUMN client_module_events.exceptionobject IS E'Тело ошибки';
+COMMENT ON COLUMN client_module_events.bodymessage IS E'Тело сообщения';
+
+\ir tables/dbversion.sql:
+SET client_encoding TO 'UTF8';
+create table if not exists dbversion (
+ dateinstall date not null,
+ textversion varchar(64)
+) tablespace ARCDATA;
+alter table dbversion add primary key(dateinstall) using index tablespace ARCINDX;
+
+\ir views/v_client_module_events.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE VIEW v_client_module_events (event_id, eventtime, messageid, correlationid, event_code, event_message, f20, f108, bodymessage, exceptionflag, exceptionobject, part_date, messagetype, edno, eddate) AS
+ SELECT cme.EVENT_ID,
+  cme.EVENTTIME,
+  cme.MESSAGEID,
+  cme.CORRELATIONID,
+  em.EVENT_CODE,
+  cme.EVENT_MESSAGE,
+  cme.F20,
+  cme.F108,
+  cme.BODYMESSAGE,
+  cme.EXCEPTIONFLAG,
+  cme.EXCEPTIONOBJECT,
+  cme.PART_DATE,
+  cme.MESSAGETYPE,
+  cme.EDNO,
+  cme.EDDATE
+ FROM CLIENT_MODULE_EVENTS cme,
+      CDEVENTCODE em
+where
+  em.EVENT_CODE_ID = cme.EVENT_CODE_ID;
+
+\ir views/v_client_module_events_nacknak.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE VIEW v_client_module_events_nacknak (event_id, part_date, eventtime, messageid, correlationid, event_code_id, event_code, event_message, f20, f108, bodymessage, exceptionflag, exceptionobject, messagetype, edno, eddate) AS
+ SELECT  cl1.EVENT_ID
+     , cl1.PART_DATE
+     , cl1.EVENTTIME
+     , cl1.MESSAGEID
+     , cl1.CORRELATIONID
+     , cl1.EVENT_CODE_ID
+     , ec.EVENT_CODE
+     , cl1.EVENT_MESSAGE
+     , cl1.F20
+     , cl1.F108
+     , cl1.BODYMESSAGE
+     , cl1.EXCEPTIONFLAG
+     , cl1.EXCEPTIONOBJECT
+     , cl1.MESSAGETYPE
+     , cl1.EDNO
+     , cl1.EDDATE
+ FROM CLIENT_MODULE_EVENTS cl1,
+      CDEVENTCODE ec
+where
+    not exists (select 1 from CLIENT_MODULE_EVENTS cl2 where CL2.CORRELATIONID = cl1.MESSAGEID)
+    and cl1.CORRELATIONID = ''
+    and ec.event_code_id = cl1.event_code_id;
+
+\ir dml/event_code.sql:
+SET client_encoding TO 'UTF8';
+-- Errors ERR
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1001, 'Error init CM','Ошибка инициализации клиентского модуля','ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1002, 'Error init private key','Ошибка инициализации приватного ключа','ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1003, 'Client module error','Ошибка клиентского модуля','ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1004, 'Message validation error','Ошибка валидации сообщения', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1005, 'Crypto error','Ошибка криптомодуля' , 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1006, 'Crypto channel error','Ошибка криптоканала' , 'ERR');
+
+-- Start waiting Sberbank (SWB)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1007, 'Message received from Client','Сообщение получено от Клиента' ,'SWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1008, 'Message received from package','Сообщение получено из пакета','SWB');
+
+-- End waiting Sberbank (EWB)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1009, 'Response sent to Client','Квитанция отправлена Клиенту','EWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1010, 'Response logged','Квитанция залогирована','EWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1011, 'Response put into package','Квитанция упакована в пакет','EWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1012, 'Technical NACK sent to Client','Техническая квитанция отправлена Клиенту','EWBM');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1013, 'Business NACK sent to Client','Бизнес квитанция отправлена Клиенту','EWB');
+
+-- Start waiting Client (SWC)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1014, 'Message received from Sberbank','Сообщение получено от Сбербанка','SWC');
+
+-- End waiting Client (EWC)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1015, 'Response sending to Sberbank','Квитанция отправляется в Сбербанк','EWC');
+
+-- other events
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1016, 'CM init successfull','Клиентский модуль успешно запущен');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1017, 'Request crypto component','Запрос крипто-компонентов от Сбербанка');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1018, 'Package received from Client','Пакет сообщений получен от Клиента');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1019, 'Message put into package','Сообщение упаковано в пакет');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1020, 'Package sent to Client','Пакет сообщений отправлен Клиенту');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1021, 'Message sent to Client','Сообщение отправлено Клиенту');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1022, 'Message sending to Sberbank','Сообщение отправляется в Сбербанк');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1023, 'Response received from Client','Квитанция получена от Клиента');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1024, 'Response received from package','Получена квитанция из пакета');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1025, 'Response received from Sberbank','Получена квитанция от Сбербанка');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1026, 'Responses package sent to Client','Пакет квитанций получен от Клиента');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1027, 'Response created','Квитанция сформирована');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1028, 'EDS imposed','Электронная подпись сформирована');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1029, 'EDS removed','Электронная подпись снята');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1030, 'Message sent to BACKOUT','Сообщение отправлено в backout');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1031, 'Error get CMS','Ошибка извлечения тела сообщения');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1033, 'Received new crypto request','Получение новых крипто-компонентов');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1034, 'Sended crypto response','Отправлен ответ о получении крипто-компонентов');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1035, 'Response sent to NACK queue','Квитанция отправлена в очередь квитанций');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1036, 'Received DirectoryNACK request','Получен запрос на обновление справочника квитанций');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1037, 'Sended DirectoryNACK response','Отправлен ответ об обновлении справочника квитанций');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1038, 'DirectoryNACK channel error','Ошибка канала передачи справочника квитанций', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1039, 'WS channel error','Ошибка веб-сервиса, сообщение будет переотправлено', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1040, 'WS validation error','Сообщение имеет недопустимый формат', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1041, 'Attempt to restore DB logging','Ошибка базы данных, попытка восстановления логирования', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1042, 'DB logging restored','Логирование в базу данных восстановлено');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1043, 'Gateway error','Транспортная ошибка шлюза', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1044, 'Response body missing','Отсутствует тело ответа для повторной отправки', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1045, 'Response resending to Sberbank','Квитанция повторно отправляется в Сбербанк', 'EWC');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1046, 'Message deliver success to GW','Сообщение успешно передано в Шлюз ФИ');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1047, 'CM stopped correctly','Клиентский модуль остановлен корректно');  
+
+commit;
+
+\ir dml/insert_dbversion.sql:
+SET client_encoding TO 'UTF8';
+insert into dbversion(dateinstall, textversion) values(now(), 'D-05.000.00')
+on conflict (dateinstall) do update set textversion='D-05.000.00';
+commit;
+
+\ir permissions.sql:
+-- назначение привилегий для SBACCESSLOG
+drop function if exists setPermitions(varchar, varchar);
+
+create or replace function setPermitions(pUserLog varchar, pUserArc varchar)
+returns void as $$
+declare
+  vQuery varchar(2000);
+begin
+
+vQuery := 'grant all on tablespace ARCLOB to ' || pUserLog;
+RAISE NOTICE 'exec: %',vQuery;
+EXECUTE vQuery;
+
+vQuery := 'grant all on tablespace ARCINDX to ' || pUserLog;
+RAISE NOTICE 'exec: %',vQuery;
+EXECUTE vQuery;
+
+vQuery := 'grant all on tablespace ARCDATA to ' || pUserLog;
+RAISE NOTICE 'exec: %',vQuery;
+EXECUTE vQuery;
+
+vQuery := 'grant all on schema ' || pUserArc || ' to ' || pUserLog;
+RAISE NOTICE 'exec: %',vQuery;
+EXECUTE vQuery;
+
+vQuery := 'grant ' || pUserArc || ' to ' || pUserLog;
+RAISE NOTICE 'exec: %',vQuery;
+EXECUTE vQuery;
+
+end; $$ language plpgsql;
+
+select setPermitions(:userlog, :userarc);
+
+drop function setPermitions(varchar, varchar);
+
+
+
+4
+SBACCESSLOG/install_sbaccesslog.sql
+-- создание объектов в базу данных sbaccesslog выполняется от пользователя sbaccesslog который был создан в скрипте create_sbaccesslog.sql
+-- вызов:
+-- $psql -d <имя базы данных> -h <хост> -p <порт> -U sbaccesslog -L log/install_sbaccesslog.log -f SBACCESLOG/install_sbaccesslog.sql
+\ir sequences/seq_cdeventcode.sql
+\ir sequences/seq_client_module_event.sql
+\ir sequences/seq_cm_alert_param.sql
+\ir sequences/seq_directorynack.sql
+\ir tables/archiver_param.sql
+\ir tables/cdeventcode.sql
+\ir tables/cm_tmp_events.sql
+\ir tables/cm_alert_events.sql
+\ir tables/directorynacktype.sql
+\ir tables/directorynack.sql
+\ir tables/cm_alert_param.sql
+\ir tables/client_module_events.sql
+\ir tables/partition_archive.sql
+\ir tables/acknowledgement.sql
+\ir tables/aggregation.sql
+\ir tables/aggregation_completed.sql
+\ir tables/aggregationack.sql
+\ir tables/aggregationacktech.sql
+\ir tables/aggregationack_completed.sql
+\ir tables/aggregationacktech_completed.sql
+\ir tables/dbversion.sql
+\ir views/v_client_module_events.sql
+\ir views/v_directorynack.sql
+\ir views/v_client_module_events_nacknak.sql
+\ir functions/from_unix_timestamp.sql
+\ir functions/get_alert_flag.sql
+\ir functions/get_event_code_id.sql
+\ir functions/get_nack_type.sql
+\ir functions/clear_acknowledgement.sql
+\ir functions/clear_cm_history.sql
+\ir functions/delete_alert_event.sql
+\ir functions/insert_directorynack.sql
+\ir functions/write_acknowledgement.sql
+\ir functions/write_alert_param.sql
+\ir functions/write_event.sql
+\ir functions/write_alert_event.sql
+\ir functions/replace_partition.sql
+\ir functions/move_partition.sql
+\r
+\ir dml/archiver_param.sql
+\ir dml/directorynacktype.sql
+\ir dml/directorynack.sql
+\ir dml/event_code.sql
+\ir dml/insert_dbversion.sql
+\ir dml/cm_alert_param.sql
+\r
+SELECT replace_partition('CLIENT_MODULE_EVENTS');
+
+
+\ir sequences/seq_cdeventcode.sql:
+SET client_encoding TO 'UTF8';
+CREATE SEQUENCE seq_cdeventcode INCREMENT 1 MINVALUE 1045 NO MAXVALUE START 1045 CACHE 20;
+
+\ir sequences/seq_client_module_event.sql:
+SET client_encoding TO 'UTF8';
+CREATE SEQUENCE seq_client_module_event INCREMENT 1 MINVALUE 1 NO MAXVALUE START 1 CACHE 20;
+
+\ir sequences/seq_cm_alert_param.sql:
+SET client_encoding TO 'UTF8';
+CREATE SEQUENCE seq_cm_alert_param INCREMENT 1 MINVALUE 1 NO MAXVALUE START 1 CACHE 20;
+
+\ir sequences/seq_directorynack.sql:
+SET client_encoding TO 'UTF8';
+CREATE SEQUENCE seq_directorynack INCREMENT 1 MINVALUE 1 NO MAXVALUE START 1 CACHE 20;
+
+\ir tables/archiver_param.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE archiver_param (
+	param_id bigint NOT NULL,
+	name varchar(40) NOT NULL,
+	param_value varchar(15) NOT NULL,
+	description varchar(256)
+) TABLESPACE SBCLIENTDATA;
+alter table archiver_param add primary key (param_id) using index TABLESPACE SBCLIENTINDX;
+CREATE UNIQUE INDEX archiver_param_name ON archiver_param (name) TABLESPACE SBCLIENTINDX;
+
+\ir tables/cdeventcode.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE cdeventcode (
+	event_code_id bigint NOT NULL,
+	event_code varchar(32) NOT NULL,
+	description varchar(256),
+	alert_flag varchar(4)
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE cdeventcode ADD PRIMARY KEY (event_code_id) using index tablespace SBCLIENTINDX;
+ALTER TABLE cdeventcode ADD UNIQUE (event_code) using index tablespace SBCLIENTINDX;
+
+\ir tables/cm_tmp_events.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE cm_tmp_events (
+	event_id bigint NOT NULL,
+	part_date timestamp NOT NULL,
+	messageid varchar(32),
+	correlationid varchar(32),
+	event_code_id bigint NOT NULL,
+	messagetype smallint NOT NULL DEFAULT 0,
+	alert_flag varchar(4) NOT NULL,
+	status char(1) NOT NULL DEFAULT 'N'
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE cm_tmp_events ADD PRIMARY KEY (event_id) using index tablespace SBCLIENTINDX;
+CREATE INDEX cm_tmp_events_alert_flag ON cm_tmp_events (alert_flag) TABLESPACE SBCLIENTINDX;
+
+\ir tables/cm_alert_events.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE cm_alert_events (
+	event_id bigint NOT NULL,
+	part_date timestamp NOT NULL,
+	messageid varchar(32),
+	correlationid varchar(32),
+	event_code_id bigint NOT NULL,
+	messagetype smallint NOT NULL DEFAULT 0,
+	check_flag char(1) DEFAULT 'N'
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE cm_alert_events ADD PRIMARY KEY (event_id) using index tablespace SBCLIENTINDX;
+
+\ir tables/directorynacktype.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE directorynacktype (
+	typenackid bigint NOT NULL,
+	typenackname varchar(255)
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE directorynacktype ADD PRIMARY KEY (typenackid) using index tablespace SBCLIENTINDX;
+
+\ir tables/directorynack.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE directorynack (
+	id bigint NOT NULL,
+	responsecode varchar(7) NOT NULL,
+	description varchar(255) NOT NULL,
+	typenackid bigint NOT NULL,
+	changed varchar(1) NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE directorynack ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+ALTER TABLE directorynack ADD CONSTRAINT cd_directorynack_fk FOREIGN KEY (typenackid)
+  REFERENCES directorynacktype(typenackid) ON DELETE NO ACTION NOT DEFERRABLE INITIALLY IMMEDIATE;
+CREATE UNIQUE INDEX directorynack_responsecode ON directorynack (responsecode) tablespace SBCLIENTINDX;
+CREATE INDEX typenackid_indx on directorynack(typenackid) tablespace SBCLIENTINDX;
+
+\ir tables/cm_alert_param.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE cm_alert_param (
+	param_id bigint DEFAULT nextval('SEQ_CM_ALERT_PARAM') NOT NULL,
+	name varchar(40) NOT NULL,
+	param_value varchar(15) NOT NULL,
+	description varchar(256)
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE cm_alert_param ADD PRIMARY KEY (param_id) using index tablespace SBCLIENTINDX;
+CREATE UNIQUE INDEX cm_alert_param_name ON cm_alert_param (name) TABLESPACE SBCLIENTINDX;
+
+\ir tables/client_module_events.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE client_module_events (
+	event_id bigint NOT NULL,
+	part_date timestamp NOT NULL,
+	eventtime timestamp NOT NULL,
+	messageid varchar(32),
+	correlationid varchar(32),
+	event_code_id bigint NOT NULL,
+	event_message varchar(1024),
+	f20 varchar(16),
+	f108 varchar(16),
+	bodymessage text,
+	exceptionflag smallint NOT NULL,
+	exceptionobject text,
+	messagetype smallint NOT NULL DEFAULT 0,
+	edno varchar(32),
+	eddate timestamp
+)
+partition by range (PART_DATE) TABLESPACE SBCLIENTDATA;
+
+COMMENT ON COLUMN client_module_events.exceptionflag IS E'Флаг ошибки';
+COMMENT ON COLUMN client_module_events.messageid IS E'Идентификатор сообщения';
+COMMENT ON COLUMN client_module_events.event_id IS E'Идентификатор события';
+COMMENT ON COLUMN client_module_events.part_date IS E'Поле дата для партицирования';
+COMMENT ON COLUMN client_module_events.eventtime IS E'Timestamp события';
+COMMENT ON COLUMN client_module_events.messagetype IS E'Тип сообщения';
+COMMENT ON COLUMN client_module_events.exceptionobject IS E'Тело ошибки';
+COMMENT ON COLUMN client_module_events.bodymessage IS E'Тело сообщения';
+
+--ALTER TABLE client_module_events ADD CONSTRAINT cl_module_events_code_fk FOREIGN KEY (event_code_id)
+--  REFERENCES cdeventcode(event_code_id) ON DELETE NO ACTION NOT DEFERRABLE INITIALLY IMMEDIATE;
+
+--CREATE INDEX client_module_events_event_id ON client_module_events (event_id) TABLESPACE SBALOGINDX;
+--CREATE INDEX client_module_events_messagetype ON client_module_events (messagetype) TABLESPACE SBALOGINDX;
+--CREATE INDEX client_module_events_messageid_correlationid_idx
+--  ON client_module_events (messageid ASC, correlationid ASC, f20 ASC, f108 ASC) TABLESPACE SBALOGINDX;
+--CREATE INDEX client_module_events_event_code_id ON client_module_events (event_code_id ASC) TABLESPACE SBALOGINDX;
+
+\ir tables/partition_archive.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE partition_archive (
+	part_name 	varchar(30) NOT NULL,
+	period_from varchar(30) NOT NULL,
+	period_to 	varchar(30) NOT NULL,
+	arc_status 	smallint NOT NULL
+) TABLESPACE SBCLIENTDATA;
+
+\ir tables/acknowledgement.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE acknowledgement (
+	rquid varchar(50) NOT NULL,
+	eventtime timestamp not null,
+	bodymessage text
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE acknowledgement ADD PRIMARY KEY (rquid) using index tablespace SBCLIENTINDX;
+CREATE INDEX acknowledgement_eventtime ON acknowledgement (eventtime) TABLESPACE SBCLIENTINDX;
+
+\ir tables/aggregation.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE aggregation (
+	id varchar(255) NOT NULL,
+	exchange bytea NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE aggregation ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+
+\ir tables/aggregation_completed.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE aggregation_completed (
+	id varchar(255) NOT NULL,
+	exchange bytea NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE aggregation_completed ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+
+\ir tables/aggregationack.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE aggregationack (
+	id varchar(255) NOT NULL,
+	exchange bytea NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE aggregationack ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+
+\ir tables/aggregationacktech.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE aggregationacktech (
+	id varchar(255) NOT NULL,
+	exchange bytea NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE aggregationacktech ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+
+\ir tables/aggregationack_completed.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE aggregationack_completed (
+	id varchar(255) NOT NULL,
+	exchange bytea NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE aggregationack_completed ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+
+
+\ir tables/aggregationacktech_completed.sql:
+SET client_encoding TO 'UTF8';
+CREATE TABLE aggregationacktech_completed (
+	id varchar(255) NOT NULL,
+	exchange bytea NOT NULL
+) TABLESPACE SBCLIENTDATA;
+ALTER TABLE aggregationacktech_completed ADD PRIMARY KEY (id) using index tablespace SBCLIENTINDX;
+
+\ir tables/dbversion.sql:
+create table if not exists dbversion (
+ dateinstall date not null,
+ textversion varchar(64)
+) tablespace SBCLIENTDATA;
+alter table dbversion add primary key(dateinstall) using index tablespace SBCLIENTINDX;
+
+
+\ir views/v_client_module_events.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE VIEW v_client_module_events (event_id, eventtime, messageid, correlationid, event_code, event_message, f20, f108, bodymessage, exceptionflag, exceptionobject, part_date, messagetype, edno, eddate) AS
+ SELECT cme.EVENT_ID,
+  cme.EVENTTIME,
+  cme.MESSAGEID,
+  cme.CORRELATIONID,
+  em.EVENT_CODE,
+  cme.EVENT_MESSAGE,
+  cme.F20,
+  cme.F108,
+  cme.BODYMESSAGE,
+  cme.EXCEPTIONFLAG,
+  cme.EXCEPTIONOBJECT,
+  cme.PART_DATE,
+  cme.MESSAGETYPE,
+  cme.EDNO,
+  cme.EDDATE
+ FROM CLIENT_MODULE_EVENTS cme,
+    CDEVENTCODE em
+where
+  em.EVENT_CODE_ID = cme.EVENT_CODE_ID;
+  
+\ir views/v_directorynack.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE VIEW v_directorynack (id, responsecode, description, typenackid, typenackname, changed) AS
+ SELECT  dir.ID
+     , dir.RESPONSECODE
+     , dir.DESCRIPTION
+     , dir.TYPENACKID
+     , nack.TYPENACKNAME
+     , nullif(dir.changed,'')::int CHANGED
+ FROM DIRECTORYNACK dir,
+  DIRECTORYNACKTYPE nack
+where
+    dir.typenackid=nack.typenackid;
+	
+\ir views/v_client_module_events_nacknak.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE VIEW v_client_module_events_nacknak (event_id, part_date, eventtime, messageid, correlationid, event_code_id, event_code, event_message, f20, f108, bodymessage, exceptionflag, exceptionobject, messagetype, edno, eddate) AS
+ SELECT  cl1.EVENT_ID
+     , cl1.PART_DATE
+     , cl1.EVENTTIME
+     , cl1.MESSAGEID
+     , cl1.CORRELATIONID
+     , cl1.EVENT_CODE_ID
+     , ec.EVENT_CODE
+     , cl1.EVENT_MESSAGE
+     , cl1.F20
+     , cl1.F108
+     , cl1.BODYMESSAGE
+     , cl1.EXCEPTIONFLAG
+     , cl1.EXCEPTIONOBJECT
+     , cl1.MESSAGETYPE
+     , cl1.EDNO
+     , cl1.EDDATE
+ FROM CLIENT_MODULE_EVENTS cl1,
+   CDEVENTCODE ec
+where
+    not exists (select 1 from CLIENT_MODULE_EVENTS cl2 where CL2.CORRELATIONID = cl1.MESSAGEID)
+    and cl1.CORRELATIONID = ''
+    and ec.event_code_id = cl1.event_code_id;
+	
+\ir functions/from_unix_timestamp.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION from_unix_timestamp ( pTSUnix text) RETURNS timestamp AS $body$
+DECLARE
+  result TIMESTAMP WITH TIME ZONE;
+BEGIN
+  SELECT (TIMESTAMP '1970-01-01 00:00:00 GMT' + (interval '1' second * (pTSUnix::bigint/1000))) at TIME zone 'europe/moscow'
+  INTO STRICT result;
+  RETURN result;
+END;
+$body$
+LANGUAGE PLPGSQL STABLE;
+
+\ir functions/get_alert_flag.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION get_alert_flag ( pEventCodeId bigint) RETURNS varchar AS $body$
+DECLARE
+  vAlertFlag varchar(4) := 'N';
+BEGIN
+  IF (pEventCodeId IS NOT NULL AND pEventCodeId::text <> '') THEN
+    BEGIN
+      SELECT T.ALERT_FLAG
+      INTO STRICT vAlertFlag
+      FROM CDEVENTCODE T
+      WHERE T.EVENT_CODE_ID = pEventCodeId;
+    EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      vAlertFlag := 'N';
+    END;
+  END IF;
+  RETURN coalesce(vAlertFlag,'N');
+END;
+$body$
+LANGUAGE PLPGSQL STABLE;
+
+\ir functions/get_event_code_id.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION get_event_code_id ( pEventCode varchar ) RETURNS bigint AS $body$
+DECLARE
+  vEventCodeId bigint := NULL;
+BEGIN
+  IF (pEventCode IS NOT NULL AND pEventCode::text <> '') THEN
+    BEGIN
+      SELECT EVENT_CODE_ID
+      INTO STRICT vEventCodeId
+      FROM CDEVENTCODE
+      WHERE EVENT_CODE = pEventCode;
+    EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      BEGIN
+        INSERT
+        INTO CDEVENTCODE(
+            EVENT_CODE_ID,
+            EVENT_CODE
+          )
+          VALUES (
+            nextval('seq_cdeventcode'),
+            pEventCode
+          )
+        RETURNING EVENT_CODE_ID
+        INTO vEventCodeId;
+      EXCEPTION
+      WHEN unique_violation THEN
+        vEventCodeId := GET_EVENT_CODE_ID(pEventCode);
+        RETURN vEventCodeId;
+      END;
+    END;
+  END IF;
+  RETURN vEventCodeId;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/get_nack_type.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION get_nack_type ( pNackResponseCode varchar ) RETURNS varchar AS $body$
+DECLARE
+  pTypeNackID varchar(10):=null;
+BEGIN
+  if (pNackResponseCode IS NOT NULL AND pNackResponseCode::text <> '') then
+    begin
+      select TYPENACKNAME
+      into STRICT pTypeNackID
+      from DIRECTORYNACKTYPE
+      where TYPENACKID = (SELECT typenackid from directorynack where responsecode = pNackResponseCode);
+      exception
+        when NO_DATA_FOUND then
+        pTypeNackID := null;
+    end;
+  end if;
+  return pTypeNackID;
+end;
+$body$
+LANGUAGE PLPGSQL STABLE;
+
+\ir functions/clear_acknowledgement.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION clear_acknowledgement () RETURNS VOID AS $body$
+DECLARE
+VACKHISTORY INTEGER;
+BEGIN
+ BEGIN
+   SELECT PARAM_VALUE INTO STRICT VACKHISTORY
+     FROM CM_ALERT_PARAM
+    WHERE NAME = 'ACKNOWLEDGEMENT_HISTORY';
+   EXCEPTION WHEN NO_DATA_FOUND THEN VACKHISTORY:=3;
+ END;
+ DELETE FROM ACKNOWLEDGEMENT
+  WHERE EVENTTIME < date_trunc('day', clock_timestamp()) - (to_char(VACKHISTORY,'99999') || ' day')::interval;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/clear_cm_history.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION clear_cm_history () RETURNS VOID AS $body$
+DECLARE
+  vTimeout varchar(15) := 0;
+BEGIN
+  begin
+    select par.param_value into STRICT vTimeout
+    from cm_alert_param par
+    where par.name = 'ALERT_HISTORY_TIMEOUT';
+  exception
+    when NO_DATA_FOUND then vTimeout := '3';
+  end;
+
+  delete from cm_alert_events t
+  where date_trunc('day', t.part_date) < date_trunc('day', clock_timestamp() - (vTimeout || ' day')::interval);
+end;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/delete_alert_event.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION delete_alert_event (pEventId bigint) RETURNS VOID AS $body$
+BEGIN
+ if pEventId > 0 then
+   delete from cm_alert_events t where t.event_id = pEventId;
+ elsif pEventId = -1 then
+   delete from cm_alert_events;
+ end if;
+end;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/insert_directorynack.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION insert_directorynack ( pResponsecode varchar, pDescription varchar, pTypeNackID bigint ) RETURNS VOID AS $body$
+BEGIN
+	insert into directorynack as d (id, responsecode, description, typenackid, changed)
+	values (nextval('seq_directorynack'), pResponsecode, pDescription, pTypeNackID, '0')
+	ON CONFLICT (responsecode) DO update set description = pDescription, typenackid = pTypeNackID
+	where d.changed = '0' and d.responsecode = pResponsecode;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/write_acknowledgement.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION write_acknowledgement (PRQUID varchar, PBODYMESSAGE text, PEVENTTIME timestamp with time zone, PRETURNCODE OUT INTEGER) AS $body$
+DECLARE
+ i BIGINT := 0;
+BEGIN
+    INSERT INTO ACKNOWLEDGEMENT(RQUID,BODYMESSAGE, EVENTTIME)
+    (
+      SELECT PRQUID RQ, PBODYMESSAGE BM, PEVENTTIME ET
+       WHERE NOT EXISTS (
+         SELECT 1 FROM ACKNOWLEDGEMENT
+          WHERE RQUID = PRQUID
+        )
+    );
+	get diagnostics i = row_count;
+    PRETURNCODE:=CASE WHEN coalesce(i,0)>0 THEN 1 ELSE 0 END;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/write_alert_param.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION write_alert_param ( pID bigint, pName varchar, pValue varchar, pDescription varchar ) RETURNS VOID AS $body$
+BEGIN
+ IF pID is null THEN
+    INSERT INTO CM_ALERT_PARAM(NAME, PARAM_VALUE, DESCRIPTION)
+    VALUES (pName, pValue, pDescription);
+ ELSE
+    UPDATE CM_ALERT_PARAM PR
+    SET NAME = pName,
+        PARAM_VALUE = pValue,
+        DESCRIPTION = pDescription
+        WHERE PR.PARAM_ID = pID;
+ END IF;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/write_event.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION write_event ( pEventTime TIMESTAMP with time zone, pMessageType bigint, pMessageId varchar, pCorrelationId varchar, pF20 varchar, pF108 varchar, pEDNO varchar, pEDDate timestamp with time zone, pEventMessage varchar, pBodyMessage text, pExceptionFlag bigint, pExeptionList text, pEventCode varchar)
+RETURNS VOID AS $body$
+DECLARE
+	vEventId bigint;
+	vpartdate timestamp;
+	vAlertFlag varchar(4);
+	vId bigint;
+BEGIN
+ vpartdate  := CAST(pEventTime AS timestamp);
+
+ vEventId := GET_EVENT_CODE_ID(pEventCode);
+ select nextval('seq_client_module_event') into STRICT vId;
+
+ INSERT INTO CLIENT_MODULE_EVENTS(EVENT_ID, EVENTTIME, MESSAGEID, CORRELATIONID, F20, F108, BODYMESSAGE,
+  EXCEPTIONFLAG, EXCEPTIONOBJECT, EVENT_CODE_ID, PART_DATE, EVENT_MESSAGE, MESSAGETYPE, EDNO, EDDATE)
+ VALUES (vId, pEventTime, pMessageId, pCorrelationId, pF20, pF108, pBodyMessage, pExceptionFlag, pExeptionList,
+  vEventId, vpartdate, pEventMessage, pMessageType, pEDNO, pEDDate);
+
+ vAlertFlag:=GET_ALERT_FLAG(vEventId);
+
+ IF (vAlertFlag in ('ERR','SWB','EWB','SWC','EWC','EWBM')) THEN
+  INSERT
+  INTO CM_TMP_EVENTS( EVENT_ID, PART_DATE, MESSAGEID, CORRELATIONID, EVENT_CODE_ID, MESSAGETYPE, ALERT_FLAG)
+  VALUES ( vId, pEventTime, pMessageId, pCorrelationId, vEventId, pMessageType, vAlertFlag);
+ END IF;
+
+ IF (vEventId = 1015) THEN
+	insert into ACKNOWLEDGEMENT as d (RQUID, BODYMESSAGE, EVENTTIME)
+	VALUES (coalesce(pCorrelationId, pMessageId), pBodyMessage, pEventTime)
+	ON CONFLICT (RQUID) DO
+	update set BODYMESSAGE = pBodyMessage, EVENTTIME = pEventTime
+	     where d.RQUID = coalesce(pCorrelationId, pMessageId)
+	       and d.BODYMESSAGE!=pBodyMessage;
+ END IF;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/write_alert_event.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION write_alert_event () RETURNS VOID AS $body$
+DECLARE
+  vTrnTimeout varchar(10) := '0';
+BEGIN
+  -- vTrnTimeout таймаут транзакции
+  begin
+    select par.param_value into STRICT vTrnTimeout
+    from cm_alert_param par
+    where par.name = 'TRN_TIMEOUT';
+  exception
+    when NO_DATA_FOUND then vTrnTimeout := '15';
+  end;
+
+  -- статуc PROCESSING для всех записей с типом:
+  -- ОШИБКА,
+  -- ЗАВЕРШЕНИЕ ТРАНЗАКЦИИ,
+  -- НАЧАЛО ТРАНЗАКЦИИ старше vTrnTimeout минут
+  -- начало транзакции, для которых есть конец транзакции
+  update cm_tmp_events e
+  set status = 'P'
+  where e.alert_flag in ('ERR','EWB','EWC','EWBM')
+  or (e.alert_flag in ('SWB','SWC') and e.part_date < (clock_timestamp() - (vTrnTimeout || ' minute')::interval))
+  or (e.alert_flag in ('SWB','SWC') and exists (SELECT 1 from cm_tmp_events ee where ee.alert_flag in ('EWB','EWC','EWBM') and ee.correlationid = e.messageid));
+
+  -- копируем в отчет все записи со статусом PROCESSING и типом ОШИБКА
+  insert into cm_alert_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype)
+  SELECT e.event_id, e.part_date, e.messageid, e.correlationid, e.event_code_id, e.messagetype
+  from cm_tmp_events e
+  where e.alert_flag = 'ERR'
+  and e.status = 'P';
+
+  -- копируем в отчет все записи со статусом PROCESSING и типом НАЧАЛО ТРАНЗАКЦИИ, для которых нет ответа и нет ошибки
+  insert into cm_alert_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype)
+  SELECT se.event_id, se.part_date, se.messageid, se.correlationid, se.event_code_id, se.messagetype
+  from cm_tmp_events se
+  where se.alert_flag in ('SWB','SWC')
+  and not exists (SELECT 1 from
+                 cm_tmp_events ee
+                 where ee.alert_flag in ('EWB','EWC')
+                 and ee.correlationid = se.messageid
+                 and ee.status = 'P')
+  and not exists (select 1 from
+                 cm_tmp_events er
+                 where er.alert_flag = 'ERR'
+                 and er.messageid = se.messageid
+                 and er.status = 'P')
+  --вставляем только новые message id
+  and not exists (select 1 from
+                cm_alert_events ce
+                where ce.messageid=se.messageid)
+  and se.status = 'P';
+
+  -- копируем в отчет записи со статусом P и типом - техническая квитанция
+ insert into cm_alert_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype)
+  SELECT se.event_id, se.part_date, se.messageid, se.correlationid, se.event_code_id, se.messagetype
+  from cm_tmp_events se
+  where se.alert_flag ='EWBM'
+  and not exists (SELECT 1 from
+                cm_alert_events ce
+                where ce.messageid=se.messageid)
+  and se.status = 'P';
+
+  -- Обновляем event_code_id сообщений у которых статус Processing и message id которых уже есть в таблице cm_alert_events
+  update cm_alert_events event
+  set event_code_id = (SELECT event_code_id from cm_tmp_events tmp
+                        where tmp.messageid=event.messageid
+                        and tmp.alert_flag = 'EWBM'
+                        and tmp.status='P')
+  where event.messageid=(select messageid from cm_tmp_events tmp
+                        where tmp.messageid=event.messageid
+                        and tmp.alert_flag = 'EWBM'
+                        and tmp.status='P');
+
+  -- удаляем все записи со статуcом PROCESSING
+  delete from cm_tmp_events e
+  where e.status = 'P';
+end;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/replace_partition.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION replace_partition ( pTableName varchar, pCheckArchive varchar DEFAULT 'YES', pUserLog varchar DEFAULT :userlog) RETURNS VOID AS $body$
+-- pUserLog параметр явно устанавливается по умолчанию в момент компиляции функции в базу данных не предназначен для явного вызова.
+DECLARE
+  vDropPartDate       varchar(32);
+  vcreatepartdate     VARCHAR(32);
+  vQuery              varchar(2000);
+  vLogPeriodCount     bigint;
+  vLogPeriodUnit      varchar(1);
+  vPartNamePeriod     bigint;
+  vPartUnit           varchar(1);
+  vLastPartDate       varchar(30);
+  vInterval           varchar(32);
+  vPieceInterval      varchar(8);
+  vTs                 timestamp(0);
+  part RECORD;
+  cr RECORD;
+
+BEGIN
+  vTs := date_trunc('day', current_timestamp(0));
+
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vPartUnit, vPartNamePeriod
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'IntervalPartition_' || pTableName;
+
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vLogPeriodUnit, vLogPeriodCount
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'StorageTime_' || pTableName;
+
+  SELECT CASE
+  WHEN vLogPeriodUnit='M' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' month')::interval + '1 day':: interval, 'YYYYMMDDHH24')
+  WHEN vLogPeriodUnit='Y' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' year')::interval + '1 day':: interval, 'YYYYMMDDHH24')
+  ELSE TO_CHAR(vTs - (to_char(vLogPeriodCount + 1, '999999999') || ' day')::interval, 'YYYYMMDDHH24') END,
+  to_char(vPartNamePeriod*3, '999999999') || CASE WHEN vPartUnit='M' THEN  ' month' WHEN vPartUnit='Y' THEN  ' year' ELSE ' day' END,
+  case when vPartUnit='H' then ' hour' when vPartUnit='D' then ' day' when vPartUnit='Y' then ' year' else ' month' end
+  INTO STRICT vDropPartDate, vInterval, vPieceInterval;
+
+  -- Удаляем старые партиции.
+  FOR part IN (select * from (
+                               SELECT
+                                               nmsp_parent.nspname AS parent_schema,
+                                               parent.relname      AS parent,
+                                               nmsp_child.nspname  AS child_schema,
+                                               child.relname       AS child
+                               FROM pg_inherits
+                                               JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                                               JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                                               JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                                               JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                               WHERE parent.relname='client_module_events'
+                               and nmsp_parent.nspname = pUserLog) pr
+                               LEFT OUTER JOIN partition_archive ar ON (PR.child = ar.PART_NAME)
+                               WHERE PR.parent = 'client_module_events' AND PR.child < 'p' || vDropPartDate  and (pCheckArchive = 'NO' or ar.ARC_STATUS = 1)
+                               order by pr.child) LOOP
+    BEGIN
+      vquery := 'DROP TABLE '|| pUserLog || '.' || part.child;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+    EXCEPTION
+      -- SQL state: 42P01 таблица не существует
+      WHEN SQLSTATE '42P01' THEN NULL;
+    END;
+  END LOOP;
+  delete from partition_archive where arc_status = 1;
+
+  -- Проверяем дату последней партиции
+  SELECT SUBSTR(max(child.relname), 2) LAST_PARTITION
+  into STRICT vLastPartDate
+  FROM pg_inherits
+    JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+    JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+    JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+    JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+  WHERE parent.relname='client_module_events'
+  and nmsp_parent.nspname = pUserLog;
+
+  -- Если нет партиций, создадим одну на вчерашний день
+  if vLastPartDate is null then
+                vcreatepartdate := TO_CHAR(vTs, 'YYYYMMDDHH24');
+                vquery := 'CREATE TABLE '|| pUserLog ||'.P' || vcreatepartdate || ' PARTITION OF '|| pUserLog ||'.CLIENT_MODULE_EVENTS ' ||
+                               ' FOR VALUES FROM (''' || vTs - ('1 day')::interval ||
+                               ''') TO (''' || vTs || ''') tablespace SBCLIENTLOBDATA';
+                BEGIN
+                               EXECUTE vquery;
+                               RAISE NOTICE 'exec: %',vquery;
+                               -- создаем индексы для новой партиции
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (event_id) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (messagetype) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (messageid ASC, correlationid ASC, f20 ASC, f108 ASC) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (event_code_id ASC) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'ALTER TABLE '|| pUserLog || '.P' || vcreatepartdate || ' ADD CONSTRAINT P' || vcreatepartdate || '_FK FOREIGN KEY (event_code_id) REFERENCES '|| pUserLog || '.cdeventcode(event_code_id) ON DELETE NO ACTION NOT DEFERRABLE INITIALLY IMMEDIATE';
+                               EXECUTE vquery;
+							   
+							   insert into partition_archive (part_name, period_from, period_to, arc_status) values
+							   ('p' || vcreatepartdate,
+							    date_trunc('day', clock_timestamp()) - ('1 day')::interval,
+								date_trunc('day', clock_timestamp()),
+								0);
+                EXCEPTION
+				  -- SQL state: 42P07 таблица уже существует
+				  WHEN SQLSTATE '42P07' THEN NULL;
+				END;
+  end if;
+
+  -- Создаем новые партиции.
+    for cr in (select
+				tab.rownum,
+				TO_CHAR(TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char(tab.rownum*vPartNamePeriod, '999999999') || vPieceInterval)::interval, 'YYYYMMDDHH24') part_name,
+				TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char((tab.rownum-1)*vPartNamePeriod, '999999999') || vPieceInterval)::interval period_from,
+				TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char(tab.rownum*vPartNamePeriod, '999999999') || vPieceInterval)::interval period_to
+				from (
+				select row_number() over() rownum, *  from
+				(SELECT max(child.relname) LAST_PARTITION
+				FROM pg_inherits
+					JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+					JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+					JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+					JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+				WHERE parent.relname='client_module_events'
+				  and nmsp_parent.nspname = pUserLog) lp, pg_class o
+				  ) tab
+				where (TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char((tab.rownum-1)*vPartNamePeriod, '999999999') || vPieceInterval)::interval - vTs) < vInterval::interval
+                -- условие нарезает партиции на 3 интервала хранения вперед
+    ) loop
+		vquery := 'CREATE TABLE '|| pUserLog ||'.P' || cr.part_name || ' PARTITION OF '|| pUserLog ||'.CLIENT_MODULE_EVENTS ' ||
+            ' FOR VALUES FROM (''' || cr.period_from || ''') TO (''' || cr.period_to || ''') tablespace SBCLIENTLOBDATA';
+		BEGIN
+			EXECUTE vquery;
+            RAISE NOTICE 'exec: %',vquery;
+            -- создаем индексы для новой партиции
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (event_id) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (messagetype) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (messageid ASC, correlationid ASC, f20 ASC, f108 ASC) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (event_code_id ASC) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'ALTER TABLE '|| pUserLog ||'.P' || cr.part_name || ' ADD CONSTRAINT P' || cr.part_name || '_FK FOREIGN KEY (event_code_id) REFERENCES '||pUserLog ||'.cdeventcode(event_code_id) ON DELETE NO ACTION NOT DEFERRABLE INITIALLY IMMEDIATE';
+            EXECUTE vquery;
+			
+			insert into partition_archive (part_name, period_from, period_to, arc_status)
+			values ('p' || cr.part_name, cr.period_from, cr.period_to, 0);
+        EXCEPTION
+			-- SQL state: 42P07 таблица уже существует
+			WHEN SQLSTATE '42P07' THEN NULL;
+		END;
+    end loop;
+
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\ir functions/move_partition.sql:
+SET client_encoding TO 'UTF8';
+CREATE OR REPLACE FUNCTION move_partition ( pTableName varchar , pCheckArchive varchar DEFAULT 'YES', pUserLog varchar default :userlog, pUserArc varchar default :userarc ) RETURNS VOID AS $body$
+    -- pUserLog параметр явно устанавливается по умолчанию в момент компиляции функции в базу данных не предназначен для явного вызова.
+    -- pUserArc параметр явно устанавливается по умолчанию в момент компиляции функции в базу данных не предназначен для явного вызова.
+DECLARE
+
+  vDropPartDate       varchar(32);
+  vcreatepartdate     VARCHAR(32);
+  vQuery              varchar(2000);
+  vLogPeriodCount     bigint;
+  vLogPeriodUnit      varchar(1);
+  vPartNamePeriod     bigint;
+  vPartUnit           varchar(1);
+  vLastPartDate       varchar(30);
+  vTs                 timestamp(0);
+  part RECORD;
+  cr RECORD;
+
+BEGIN
+  vTs := date_trunc('day', current_timestamp(0));
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vPartUnit, vPartNamePeriod
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'IntervalPartition_' || pTableName;
+
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vLogPeriodUnit, vLogPeriodCount
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'StorageTime_' || pTableName;
+
+  SELECT CASE
+  WHEN vLogPeriodUnit='M' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' month')::interval + '1 day'::interval, 'YYYYMMDDHH24')
+  WHEN vLogPeriodUnit='Y' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' year')::interval + '1 day'::interval, 'YYYYMMDDHH24')
+  ELSE TO_CHAR(vTs - (to_char(vLogPeriodCount + 1, '999999999') || ' day')::interval, 'YYYYMMDDHH24') END
+  INTO STRICT vDropPartDate;
+
+  -- Переносим старые партиции в архивную схему.
+  FOR part IN (select * from (
+                               SELECT
+                                               nmsp_parent.nspname AS parent_schema,
+                                               parent.relname      AS parent,
+                                               nmsp_child.nspname  AS child_schema,
+                                               child.relname       AS child
+                               FROM pg_inherits
+                                               JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                                               JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                                               JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                                               JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                               WHERE parent.relname='client_module_events'
+                               and nmsp_parent.nspname = pUserLog) pr
+                               LEFT OUTER JOIN partition_archive ar ON (PR.child = ar.PART_NAME)
+                               WHERE PR.parent = 'client_module_events' AND PR.child < ('p' || vDropPartDate)
+							   AND pCheckArchive = 'YES' AND ar.ARC_STATUS = 0
+                               order by pr.child)
+  LOOP
+    BEGIN
+      vquery := 'ALTER TABLE '|| pUserLog || '.client_module_events detach partition ' || part.child;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+      
+	  BEGIN
+		  vquery := 'ALTER TABLE ' || pUserLog || '.' || part.child || ' DROP CONSTRAINT ' || part.child || '_fk';
+		  EXECUTE vquery;
+		  RAISE NOTICE 'exec: %',vquery;
+	  EXCEPTION
+		  -- SQL state: 42704 ограничение не существует
+		  WHEN SQLSTATE '42704' THEN NULL;
+      END;
+	  
+	  vquery := 'ALTER TABLE '|| pUserLog ||'.'|| part.child || ' SET TABLESPACE arclob';
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+
+	  vquery := 'ALTER TABLE '||pUserLog||'.'|| part.child || ' SET SCHEMA ' ||pUserArc;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;		
+
+	  vquery := 'ALTER TABLE ' || pUserArc ||'.'|| part.child || ' OWNER to ' || pUserArc;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;	  
+
+	  vquery := 'ALTER TABLE '||pUserArc ||'.client_module_events attach partition ' || pUserArc ||'.'|| part.child || '
+	  FOR VALUES FROM (''' || part.period_from || ''') TO (''' || part.period_to || ''')';
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+	  
+	  update partition_archive set arc_status = 1 where part_name = part.child;
+	END;
+  END LOOP;
+END;
+$body$
+LANGUAGE PLPGSQL;
+
+\r
+\ir dml/archiver_param.sql:
+SET client_encoding TO 'UTF8';
+INSERT INTO ARCHIVER_PARAM (PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION )
+  VALUES (1,'IntervalPartition_CLIENT_MODULE_EVENTS', 'D10','Интервал разбиения партиций(формат H1, D1, M1 или Y1)');
+INSERT INTO ARCHIVER_PARAM(PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION)
+  VALUES(2,'StorageTime_CLIENT_MODULE_EVENTS','D30','Время хранения партиций(формат D1,M1 или Y1)');
+INSERT INTO ARCHIVER_PARAM (PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION)
+  VALUES(3,'ArchiveTime_CLIENT_MODULE_EVENTS','D3','Интервал архивирования партиций(формат D1 или Н1)') ;
+commit;
+
+\ir dml/directorynacktype.sql:
+SET client_encoding TO 'UTF8';
+-- insert data in directorynacktype
+insert into DIRECTORYNACKTYPE (TypeNackID, TypeNackName) values (0, 'Technical');
+insert into DIRECTORYNACKTYPE (TypeNackID, TypeNackName) values (1, 'Business');
+commit;
+
+\ir dml/directorynack.sql:
+SET client_encoding TO 'UTF8';
+-- Insert data in directorynack
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMIN001', 'Внутренняя ошибка клиентского модуля',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMIN002', 'Ошибка логирования в БД',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL001', 'Сообщение не похоже на SWIFT',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL002', 'Сообщение не похоже на UFEBS',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL003', 'Сообщение не похоже на SBRF3',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL004', 'В сообщении SWIFT не найдено поле 20',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL005', 'В сообщении SWIFT не найдено поле 108',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL013', 'В УФЕБС сообщении не найден MessageID',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL014', 'В УФЕБС сообщении не найден CorrelationID',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL007', 'В УФЕБС сообщении не найден EDNo',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL008', 'В УФЕБС сообщении не найден EDDate',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL009', 'Дата в УФЕБС сообщении в некорректном формате',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL010', 'В УФЕБС сообщении не найден EDAutor',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL011', 'В УФЕБС пакете отсутствует атрибут количества сообщений',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL012', 'В УФЕБС пакете слишком большое количество сообщений',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'001', 'Digital signature verification error',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'100', 'Duplicate Emission',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'103', 'Unable to import message of this type',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'104', 'The respondent’s SWIFT-code is incorrect',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'105', 'The respondent’s contract is not corresponded with SWIFT format',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'PE1', 'Parsing Error',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'LE1', 'Logic Error',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'H50', 'В сообщение некорректно указан получатель или его тип сообщения не поддерживается',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'M72', 'Головная адресация владельца этого логического терминала не принадлежит организации, выделенное имя которой соде...',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'M77', 'Не удается расшифровать блок, содержащий электронную подпись.',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'T13', 'Сообщение содержит форматные ошибки',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'000', 'Технический сбой',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'M50', 'Превышена максимальная разрешенная длина сообщения',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00001', 'Недостаточно памяти',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00002', 'Подпись неверна',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00003', 'Длина буфера неверна',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00004', 'Номер пользователя неверен',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00005', 'Ошибка средств шифрования',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00006', 'Ошибка декодирования мастер-ключа',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00008', 'Используются функции из КСБ-С, которых нет в 4.0',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00009', 'Ошибка контрольной суммы файла с закрытым ключом',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00010', 'Ошибка многопоточности',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00011', 'Нет подписи',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00012', 'Ошибка открытия файла',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00013', 'Ошибка открытия файла с мастер-ключом',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00014', 'Ошибка открытия файла с публичным ключом',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00015', 'Ошибка открытия файла с закрытым ключом',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00017', 'Ошибка чтения файла с закрытым ключом',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00018', 'Ошибка чтения файла с мастер-ключом',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00019', 'Идентификатор подписи не зарегистрирован в БОК',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00020', 'Внутренние тесты библиотеки проведены с ошибкой',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00021', 'Ошибка чтения главного ключа',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00022', 'Ошибка чтения узла замены',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00023', 'Ошибка контрольной суммы главного ключа',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00024', 'Главный ключ требует ввода пароля',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00025', 'Не найден датчик ДСЧ',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00026', 'Ошибка контрольной суммы при чтении ТМ',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00027', 'Ошибка загрузки библиотеки grn.dll',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00028', 'Остановлено пользователем',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00029', 'Не драйвера ТМ',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00030', 'Не приложен ТМ к съемнику',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00031', 'Ошибка чтения TM',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00032', 'Ошибка в параметрах функции',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00033', 'Ошибка дескриптора (например, происходит обращение к закрытому ранее дескриптору или вместо валидного дескриптор...',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00034', 'Неправильный тип дескриптора (например, вместо типа H_USER в соответствующий параметр функции передается  дескри...',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00035', 'Ошибка записи ТМ',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00037', 'Ошибка чтения файла сетевых ключей',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00039', 'Ошибка инициализации библиотеки, не был вызван cr_init',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00040', 'Ошибка загрузки ключа',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00042', 'Ошибка сетевого ключа',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00043', 'Буфер не был зашифрован',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00044', 'Ошибка расшифровывания буфера',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00045', 'Ошибка файлового ключа',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00046', 'Ошибка чтения файла',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00047', 'Ошибка записи файла',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00048', 'Ошибка компрессии',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00049', 'Ошибка - длина буфера недостаточна',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00101', 'Ошибка сервера ЭП. Устройство не найдено',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00102', 'Ошибка сервера ЭП. Нет сокета',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00103', 'Ошибка сервера ЭП. ERR_NO_RESOLVE',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00104', 'Ошибка сервера ЭП. Нет отклика',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00105', 'Ошибка сервера ЭП. Неверная структура пакета',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00106', 'Ошибка сервера ЭП. Не поддерживается протокол TCPIP',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00107', 'Ошибка сервера ЭП. Ключ не найден',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00108', 'Ошибка сервера ЭП. Некорректный параметр',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00109', 'Ошибка сервера ЭП. Внутренняя ошибка драйвера',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00110', 'Ошибка сервера ЭП. Превышено время ожидания',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00111', 'Ошибка сервера ЭП. Некорректная версия',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE11110', 'Ошибка драйвера TM',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE11111', 'Ошибка ДСЧ',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE11112', 'Ошибка ГК, УЗ',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE11200', 'Сервер ЭП не найден',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00300', 'Неизвестный ASN.1 тип',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00301', 'Ошибка кодирования в ASN.1 структуру',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00302', 'Ошибка декодирования ASN.1 структуры',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00303', 'Слишком большой ASN.1 тэг',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00304', 'Слишком большая длина ASN.1 объекта',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00305', 'Ошибка в шаблоне ASN.1 объекта',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00306', 'Ошибка в ASN.1 объекте CHOICE',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00307', 'Ошибка в ASN.1 объекте',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00308', 'Неизвестный OID',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00309', 'Неизвестный идентификатор',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00310', 'Ошибка конвертации',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00311', 'Не задано значение элемента структуры',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00312', 'Неизвестный тип сертификата',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00313', 'Ошибка получения текущего времени',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00314', 'Данные не являются подписанными',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00315', 'Отсутствует информация о подписавшем',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00316', 'Слишком много подписавших',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00317', 'Неподдерживаемый криптографический алгоритм',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00318', 'Ошибка загрузки библиотеки',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00319', 'Ошибка в структуре PEM',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00320', 'Объекты различны',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00321', 'Сертификат не является сертификатом издателя',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00322', 'Объект не найден',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00423', 'Отсутствует атрибут со временем подписи',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00424', 'Отсутствует атрибут с хэшем данных',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00425', 'Отсутствует информация, идентифицирующая подписанта',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00426', 'Сертификат не обнаружен',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00427', 'Сертификат содержится в списке отозванных',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00428', 'Алгоритм ЭП не поддерживается',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00429', 'Предъявленный ключ не соответствует сертификату',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00430', 'Неверная ЭП списка отозванных сертификатов',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00431', 'Время действия СОС еще не наступило или уже истекло',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00540', 'Ошибка при шифровании данных',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00545', 'Ошибка при расшифровке данных',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CE00546', 'CMS содержит данные с типом отличным от "EnvelopedData"',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMIN004', 'Ошибка канала по передачи справочника квитанций',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL016', 'Содержится знак, не входящий в набор разрешенных знаков',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL015', 'Превышена максимальная разрешенная длина сообщения',1,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL017', 'Сообщение имеет недопустимый формат',0,'0');
+
+insert into directorynack (ID, RESPONSECODE, DESCRIPTION, TYPENACKID, CHANGED)
+  values (nextval('seq_directorynack'),'CMVL018', 'Транспортная ошибка шлюза',0,'0');
+commit;
+
+\ir dml/event_code.sql:
+SET client_encoding TO 'UTF8';
+-- Errors ERR
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1001, 'Error init CM','Ошибка инициализации клиентского модуля','ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1002, 'Error init private key','Ошибка инициализации приватного ключа','ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1003, 'Client module error','Ошибка клиентского модуля','ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1004, 'Message validation error','Ошибка валидации сообщения', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1005, 'Crypto error','Ошибка криптомодуля' , 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1006, 'Crypto channel error','Ошибка криптоканала' , 'ERR');
+
+-- Start waiting Sberbank (SWB)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1007, 'Message received from Client','Сообщение получено от Клиента' ,'SWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1008, 'Message received from package','Сообщение получено из пакета','SWB');
+
+-- End waiting Sberbank (EWB)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1009, 'Response sent to Client','Квитанция отправлена Клиенту','EWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1010, 'Response logged','Квитанция залогирована','EWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1011, 'Response put into package','Квитанция упакована в пакет','EWB');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1012, 'Technical NACK sent to Client','Техническая квитанция отправлена Клиенту','EWBM');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1013, 'Business NACK sent to Client','Бизнес квитанция отправлена Клиенту','EWB');
+
+-- Start waiting Client (SWC)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1014, 'Message received from Sberbank','Сообщение получено от Сбербанка','SWC');
+
+-- End waiting Client (EWC)
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1015, 'Response sending to Sberbank','Квитанция отправляется в Сбербанк','EWC');
+
+-- other events
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1016, 'CM init successfull','Клиентский модуль успешно запущен');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1017, 'Request crypto component','Запрос крипто-компонентов от Сбербанка');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1018, 'Package received from Client','Пакет сообщений получен от Клиента');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1019, 'Message put into package','Сообщение упаковано в пакет');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1020, 'Package sent to Client','Пакет сообщений отправлен Клиенту');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1021, 'Message sent to Client','Сообщение отправлено Клиенту');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1022, 'Message sending to Sberbank','Сообщение отправляется в Сбербанк');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1023, 'Response received from Client','Квитанция получена от Клиента');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1024, 'Response received from package','Получена квитанция из пакета');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1025, 'Response received from Sberbank','Получена квитанция от Сбербанка');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1026, 'Responses package sent to Client','Пакет квитанций получен от Клиента');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1027, 'Response created','Квитанция сформирована');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1028, 'EDS imposed','Электронная подпись сформирована');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1029, 'EDS removed','Электронная подпись снята');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1030, 'Message sent to BACKOUT','Сообщение отправлено в backout');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1031, 'Error get CMS','Ошибка извлечения тела сообщения');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1033, 'Received new crypto request','Получение новых крипто-компонентов');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1034, 'Sended crypto response','Отправлен ответ о получении крипто-компонентов');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1035, 'Response sent to NACK queue','Квитанция отправлена в очередь квитанций');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1036, 'Received DirectoryNACK request','Получен запрос на обновление справочника квитанций');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1037, 'Sended DirectoryNACK response','Отправлен ответ об обновлении справочника квитанций');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1038, 'DirectoryNACK channel error','Ошибка канала передачи справочника квитанций', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1039, 'WS channel error','Ошибка веб-сервиса, сообщение будет переотправлено', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1040, 'WS validation error','Сообщение имеет недопустимый формат', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1041, 'Attempt to restore DB logging','Ошибка базы данных, попытка восстановления логирования', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1042, 'DB logging restored','Логирование в базу данных восстановлено');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1043, 'Gateway error','Транспортная ошибка шлюза', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1044, 'Response body missing','Отсутствует тело ответа для повторной отправки', 'ERR');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION, ALERT_FLAG)
+  values (1045, 'Response resending to Sberbank','Квитанция повторно отправляется в Сбербанк', 'EWC');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1046, 'Message deliver success to GW','Сообщение успешно передано в Шлюз ФИ');
+
+insert into CDEVENTCODE (EVENT_CODE_ID, EVENT_CODE, DESCRIPTION)
+  values (1047, 'CM stopped correctly','Клиентский модуль остановлен корректно');  
+
+commit;
+
+\ir dml/insert_dbversion.sql:
+SET client_encoding TO 'UTF8';
+insert into dbversion(dateinstall, textversion) values(now(), 'D-05.000.00')
+on conflict (dateinstall) do update set textversion='D-05.000.00';
+commit;
+
+\ir dml/cm_alert_param.sql:
+SET client_encoding TO 'UTF8';
+insert into cm_alert_param (PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION) values (nextval('seq_cm_alert_param'), 'ALERT_HISTORY_TIMEOUT', '3', 'Время хранения журнала мониторинга в днях');
+insert into cm_alert_param (PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION) values (nextval('seq_cm_alert_param'), 'REFRESH_TIMEOUT', '10', 'Интервал обновления таблицы мониторинга в минутах');
+insert into cm_alert_param (PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION) values (nextval('seq_cm_alert_param'), 'TRN_TIMEOUT', '15', 'Таймаут транзакции');
+insert into cm_alert_param (PARAM_ID, NAME, PARAM_VALUE, DESCRIPTION) values (nextval('seq_cm_alert_param'), 'ACKNOWLEDGEMENT_HISTORY', '3', 'Глубина хранения данных для подтверждений, в днях');
+commit;
+
+
+
+5
+create_jobs.sql
+
+-- создание заданий по расписанию, выполняется от пользователя postgres (PGAgent)
+\ir SBACCESSLOG/jobs/create_clear_acknowledgement_job.sql
+\ir SBACCESSLOG/jobs/create_clear_cm_history_job.sql
+\ir SBACCESSLOG/jobs/create_replace_partition_job.sql
+\ir SBACCESSLOG/jobs/create_write_alert_job.sql
+\ir SBACCESSLOG/jobs/create_move_partition_job.sql
+\r
+
+5.1
+create_clear_acknowledgement_job.sql
+
+SET client_encoding TO 'UTF8';
+alter table pgagent.pga_job add constraint jobname_pga_job_unq unique(jobname);
+set schema :userlog;
+DO $$
+DECLARE
+    jid integer;
+    scid integer;
+    currschema varchar(128);
+    adminuser varchar(128);
+BEGIN
+select jobid into jid from pgagent.pga_job
+  where jobname = 'CLEAR_JOB_ACKNOWLEDGEMENT'::text;
+
+ delete from pgagent.pga_schedule
+  where jscjobid=jid;
+ delete from pgagent.pga_jobstep
+  where jstname = 'clear_acknowledgement'::text;
+ delete from pgagent.pga_job
+  where jobname = 'CLEAR_JOB_ACKNOWLEDGEMENT'::text;
+
+ -- Creating a new job
+ select current_schema into currschema;
+ select current_user into adminuser;
+
+ INSERT INTO pgagent.pga_job as pgjob (jobjclid, jobname)
+   VALUES (1::integer,'CLEAR_JOB_ACKNOWLEDGEMENT'::text)
+   RETURNING pgjob.jobid INTO jid;
+--
+-- Steps
+-- Inserting a step (jobid: NULL)
+
+INSERT INTO pgagent.pga_jobstep (
+    jstjobid, jstname, jstkind,
+    jstdbname,
+    jstcode
+) VALUES (
+    jid, 'clear_acknowledgement'::text, 's'::character(1),
+    adminuser::name,
+    'set search_path to '''||currschema||''';select clear_acknowledgement();'::text
+) ;
+
+-- Schedules
+-- Inserting a schedule
+INSERT INTO pgagent.pga_schedule(
+    jscjobid, jscname,
+    jscstart, jscweekdays
+) VALUES (
+    jid, 'daily'::text,
+    clock_timestamp(),
+    -- Week days
+    array_fill(true , array [7])
+) RETURNING jscid INTO scid;
+  update pgagent.pga_schedule set jschours[2] = true where jscjobid = jid;
+END
+$$;
+
+5.2
+create_clear_cm_history_job.sql
+
+set schema :userlog;
+DO $$
+DECLARE
+    jid integer;
+    scid integer;
+    currschema varchar(128);
+    adminuser varchar(128);
+BEGIN
+ select jobid into jid from pgagent.pga_job
+  where jobname = 'CLEAR_CM_HISTORY_JOB'::text;
+ delete from pgagent.pga_schedule
+  where jscjobid=jid;
+ delete from pgagent.pga_jobstep
+  where jstname = 'clear_cm_history'::text;
+ delete from pgagent.pga_job
+  where jobname = 'CLEAR_CM_HISTORY_JOB'::text;
+-- Creating a new job
+ select current_schema into currschema;
+ select current_user into adminuser;
+ INSERT INTO pgagent.pga_job(jobjclid, jobname)
+  VALUES ( 1::integer, 'CLEAR_CM_HISTORY_JOB'::text)
+  RETURNING jobid INTO jid;
+
+-- Steps
+-- Inserting a step (jobid: NULL)
+INSERT INTO pgagent.pga_jobstep (
+    jstjobid, jstname, jstkind,
+    jstdbname,
+    jstcode
+) VALUES (
+    jid, 'clear_cm_history'::text, 's'::character(1),
+    adminuser::name,
+    'set search_path to '''||currschema||''';select clear_cm_history()'::text
+) ;
+-- Schedules
+-- Inserting a schedule
+INSERT INTO pgagent.pga_schedule(
+    jscjobid, jscname,
+    jscstart, jscweekdays
+) VALUES (
+    jid, 'daily'::text,
+    clock_timestamp(),
+    -- Week days
+    array_fill(true , array [7])
+) RETURNING jscid INTO scid;
+  update pgagent.pga_schedule set jschours[1] = true where jscjobid = jid;
+END
+$$;
+
+5.3
+create_replace_partition_job.sql
+
+set schema :userlog;
+DO $$
+DECLARE
+  jid integer;
+  scid integer;
+  currschema varchar(128);
+  adminuser varchar(128);
+BEGIN
+ select jobid into jid from pgagent.pga_job
+  where jobname = 'JOB_SBACCESSLOG_PARTITION'::text;
+
+ delete from pgagent.pga_schedule
+  where jscjobid=jid;
+ delete from pgagent.pga_jobstep
+  where jstname = 'replace_partition'::text;
+ delete from pgagent.pga_job
+  where jobname = 'JOB_SBACCESSLOG_PARTITION'::text;
+
+  -- Creating a new job
+ select current_schema into currschema;
+ select current_user into adminuser;
+  INSERT INTO pgagent.pga_job(
+    jobjclid, jobname
+  ) VALUES (
+    1::integer, 'JOB_SBACCESSLOG_PARTITION'::text
+  ) RETURNING jobid INTO jid;
+
+  -- Steps
+  -- Inserting a step (jobid: NULL)
+  INSERT INTO pgagent.pga_jobstep (
+    jstjobid, jstname, jstkind,
+    jstdbname,
+    jstcode
+  ) VALUES (
+    jid, 'replace_partition'::text, 's`'::character(1),
+    adminuser::name,
+    'set search_path to '''||currschema||''';select replace_partition(''CLIENT_MODULE_EVENTS'')'::text
+  ) ;
+
+  -- Schedules
+  -- Inserting a schedule
+  INSERT INTO pgagent.pga_schedule(
+    jscjobid, jscname,
+    jscstart, jscweekdays
+  ) VALUES (
+    jid, 'daily'::text,
+    clock_timestamp(),
+    -- Week days
+    array_fill(true , array [7])
+  ) RETURNING jscid INTO scid;
+  update pgagent.pga_schedule set jschours[2] = true where jscjobid = jid;
+  update pgagent.pga_schedule set jschours[14] = true where jscjobid = jid;
+END
+$$;
+
+5.4
+create_write_alert_job.sql
+
+set schema :userlog;
+DO $$
+DECLARE
+    jid integer;
+    scid integer;
+  currschema varchar(128);
+  adminuser varchar(128);
+BEGIN
+ select jobid into jid from pgagent.pga_job
+  where jobname = 'JOB_ALERT_EVENT'::text;
+
+ delete from pgagent.pga_schedule
+  where jscjobid=jid;
+ delete from pgagent.pga_jobstep
+  where jstname = 'write_alert_event'::text;
+ delete from pgagent.pga_job
+  where jobname = 'JOB_ALERT_EVENT'::text;
+
+-- Creating a new job
+ select current_schema into currschema;
+ select current_user into adminuser;
+INSERT INTO pgagent.pga_job(
+    jobjclid, jobname
+) VALUES (
+    1::integer, 'JOB_ALERT_EVENT'::text
+) RETURNING jobid INTO jid;
+
+-- Steps
+-- Inserting a step (jobid: NULL)
+INSERT INTO pgagent.pga_jobstep (
+    jstjobid, jstname, jstkind,
+    jstdbname,
+    jstcode
+) VALUES (
+    jid, 'write_alert_event'::text, 's'::character(1),
+    adminuser::name,
+    'set search_path to '''||currschema||''';select write_alert_event()'::text
+) ;
+
+-- Schedules
+-- Inserting a schedule
+INSERT INTO pgagent.pga_schedule(
+    jscjobid, jscname,
+    jscstart,     jscminutes
+) VALUES (
+    jid, 'minutely'::text,
+    clock_timestamp(),
+    -- Minutes
+    array_fill(true , array [60])
+) RETURNING jscid INTO scid;
+END
+$$;
+
+5.5
+create_move_partition_job.sql
+
+set schema :userlog;
+DO $$
+DECLARE
+  jid integer;
+  scid integer;
+  currschema varchar(128);
+  adminuser varchar(128);
+BEGIN
+ select jobid into jid from pgagent.pga_job
+  where jobname = 'JOB_SBACCESSLOG_MOVE'::text;
+
+ delete from pgagent.pga_schedule
+  where jscjobid=jid;
+ delete from pgagent.pga_jobstep
+  where jstname = 'clear_acknowledgement'::text;
+ delete from pgagent.pga_job
+  where jobname = 'JOB_SBACCESSLOG_MOVE'::text;
+
+  -- Creating a new job
+ select current_schema into currschema;
+ select current_user into adminuser;
+  INSERT INTO pgagent.pga_job(
+    jobjclid, jobname
+  ) VALUES (
+    1::integer, 'JOB_SBACCESSLOG_MOVE'::text
+  ) RETURNING jobid INTO jid;
+
+  -- Steps
+  -- Inserting a step (jobid: NULL)
+  INSERT INTO pgagent.pga_jobstep (
+    jstjobid, jstname, jstkind,
+    jstdbname,
+    jstcode
+  ) VALUES (
+    jid, 'move_partition'::text, 's`'::character(1),
+    adminuser::name,
+    'set search_path to '''||currschema||''';select move_partition(''CLIENT_MODULE_EVENTS'')'::text
+  ) ;
+
+  -- Schedules
+  -- Inserting a schedule
+  INSERT INTO pgagent.pga_schedule(
+    jscjobid, jscname,
+    jscstart, jscweekdays
+  ) VALUES (
+    jid, 'daily'::text,
+    clock_timestamp(),
+    -- Week days
+    array_fill(true , array [7])
+  ) RETURNING jscid INTO scid;
+  update pgagent.pga_schedule set jschours[1] = true where jscjobid = jid;
+  update pgagent.pga_schedule set jschours[13] = true where jscjobid = jid;
+END
+$$;
+
+
+Скрипт по созданию джобов выпал в ошибку:
+psql:SBACCESSLOG/jobs/create_clear_acknowledgement_job.sql:2: ОШИБКА:  схема "pgagent" не существует
+psql:SBACCESSLOG/jobs/create_clear_acknowledgement_job.sql:55: ОШИБКА:  отношение "pgagent.pga_job" не существует
+
+В БД они не создались, поддержка Сбера предложила:
+"Рекомендуем настроить запуск джобов с помощью планировщика операционной системы (Linux Cron / Планировщик Windows)."
+
+
+Решил попробовать прогонять скрипты по созданию джобов по штучно из DBeaver, пришлось немного изменить их код.
+(скрины:
+Прогон скриптов по созданию джобов01(CLEAR_JOB_ACKNOWLEDGEMENT).png
+Прогон скриптов по созданию джобов02(CLEAR_CM_HISTORY_JOB).png
+Прогон скриптов по созданию джобов03(JOB_SBACCESSLOG_MOVE).png
+Прогон скриптов по созданию джобов04(JOB_SBACCESSLOG_PARTITION).png
+Прогон скриптов по созданию джобов05(JOB_ALERT_EVENT).png)
+
+Это сработало и джобы создались. (Скрин джобов в БД - Скрины джобов в БД.png)
+
+Возникала ошибка в логах джобов
+SELECT jslid, jsljlgid, jsljstid, jslstatus, jslresult, jslstart, jslduration, jsloutput FROM pgagent.pga_jobsteplog;
+
+jsloutput = Couldn't get a connection to the database!
+
+Решение:
+https://github.com/pgadmin-org/pgadmin4/issues/7478
+Проблема с заданием pgAgent: не удалось получить соединение с базой данных, если локальный режим SQL указан в другой базе данных, отличной от postgres
+
+Нужно в файлике
+C:\Users\postgres\AppData\Roaming\postgresql\pgpass.conf
+вместо строки
+localhost:5432:postgres:postgres:*
+прописать строку
+localhost:5432:*:postgres:*
+
+
+
+(04.10.2024)
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-06.000
+
+Содержимое файла cmd (После моих правок):
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения:
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem DBNAME           - Имя базы данных
+rem HOSTNAME         - Имя хоста на котором работает СУБД
+rem PORTNUM          - Номер порта для подключения к СУБД
+rem USERLOG          - Имя пользователя оперативной БД логирования
+rem PASSLOG          - Пароль пользователя оперативной БД логирования
+rem ADMINDB          - Имя пользователя администратора БД
+rem PASSADMINDB      - Пароль администратора БД
+rem USERARC          - Пароль пользователя архивной БД логирования
+rem PASSARC          - Имя пользователя архивной БД логирования
+
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSLOG=*
+set ADMINDB=postgres
+set PASSADMINDB=b*
+set USERARC=*ssarc
+set PASSARC=*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSADMINDB%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %ADMINDB% -L logs/replace_owner.log -f SBACCESSLOG/replace_owner.sql -v userlog='%USERLOG%' -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=
+set POSTGRESQL_HOME=
+set DBNAME=
+set PASSLOG=
+set HOSTNAME=
+set PORTNUM=
+set PASSARC=
+set USERARC=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-06.002
+
+Содержимое файла cmd (После моих правок):
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Имя пользователя оперативной БД логирования
+rem USERARC        - Имя пользователя архивной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem PASSARC        - Пароль пользователя архивной БД логирования
+rem DBNAME         - Имя базы данных
+rem HOSTNAME       - Имя хоста на котором работает СУБД
+rem PORTNUM        - Номер порта для подключения к СУБД
+rem ADMINDB        - Имя администратора БД
+rem PASSADMINDB    - Пароль администратора БД
+
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set USERLOG=*sslog
+set USERARC=*ssarc
+set PASSLOG=*
+set PASSARC=*
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set ADMINDB=postgres
+set PASSADMINDB=b*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%; %PATH%
+set PGPASSWORD=%PASSARC%
+md logs
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -v userlog='%USERLOG%' -v userarc='%USERARC%' -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSADMINDB%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %ADMINDB% -L logs/replace_owner.log -f SBACCESSLOG/replace_owner.sql -v userlog='%USERLOG%' -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -v userlog='%USERLOG%' -v userarc='%USERARC%' -w >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set PASSARC=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set USERLOG=
+set USERARC=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-06.003
+
+Содержимое файла cmd (После моих правок):
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Пользователь оперативной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem USERARC        - пользователь архивной БД логирования
+rem PASSARC        - Пароль пользователя архивной БД
+rem DBNAME         - Имя базы данных
+rem HOSTNAME       - Имя хоста на котором работает СУБД
+rem PORTNUM        - Номер порта для подключения к СУБД
+
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSLOG=*
+set USERARC=*ssarc
+set PASSARC=*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-07.000
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL 10
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem Смысл параметров
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Имя пользователя оперативной БД логирования
+rem USERARC        - Имя пользователя архивной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem PASSARC        - Пароль пользователя архивной БД логирования
+rem DBNAME         - Имя БД
+rem HOSTNAME       - Хост на котором работает СУБД
+rem PORTNUM        - Номер порта для подключения к СУБД
+
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set USERLOG=*sslog
+set USERARC=*ssarc
+set PASSLOG=*
+set PASSARC=*
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%; %PATH%
+set PGPASSWORD=%PASSARC%
+md logs
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set PASSARC=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set USERLOG=
+set USERARC=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-07.001
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL 10
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem Смысл параметров
+rem USERLOG        - Имя пользователя оперативной БД логирования
+rem USERARC        - Имя пользователя архивной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem PASSARC        - Пароль пользователя архивной БД логирования
+rem DBNAME        - Имя базы данных
+rem HOSTNAME      - Имя хоста на котором работает СУБД
+rem PORTNUM       - Номер порта на котором для подключения к СУБД
+
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set USERLOG=*sslog
+set USERARC=*ssarc
+set PASSLOG=*
+set PASSARC=*
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%; %PATH%
+set PGPASSWORD=%PASSARC%
+md logs
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set PASSARC=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set USERLOG=
+set USERARC=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-07.002
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL 10
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem Смысл параметров
+rem USERLOG        - Имя пользователя оперативной БД логирования
+rem USERARC        - Имя пользователя архивной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem PASSARC        - Пароль пользователя архивной БД логирования
+rem DBNAME        - Имя базы данных
+rem HOSTNAME      - Имя хоста на котором работает СУБД
+rem PORTNUM       - Номер порта на котором для подключения к СУБД
+
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set PASSLOG=*
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSARC=*
+set USERARC=*ssarc
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w  >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-07.004
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Пользователь оперативной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem DBNAME         - Имя базы данных оперативной БД логирования
+rem HOSTNAME        - Хост базы данных оперативной БД логирования
+rem PORTNUM        - Порт базы данных оперативной БД логирования
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSLOG=*
+set USERARC=*ssarc
+set PASSARC=*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w  >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-07.007
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Пользователь оперативной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem DBNAME         - Имя базы данных оперативной БД логирования
+rem HOSTNAME        - Хост базы данных оперативной БД логирования
+rem PORTNUM        - Порт базы данных оперативной БД логирования
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSLOG=*
+set USERARC=*ssarc
+set PASSARC=*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w  >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w  >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-07.011
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Пользователь оперативной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem DBNAME         - Имя базы данных оперативной БД логирования
+rem HOSTNAME        - Хост базы данных оперативной БД логирования
+rem PORTNUM        - Порт базы данных оперативной БД логирования
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSLOG=*
+set USERARC=*ssarc
+set PASSARC=*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w  >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+C:\Documents and Settings\faa\Downloads\CI00502274-D-08.000.41-02-distrib\D-08.000.41\CMInt-08.000.41\CMInt-08.000.41\install\scripts\sql\postgresql\D-08.000
+
+rem Инсталляция БД клиентского модуля FinLine на примере использования СУБД PostgresSQL версии 10 и выше
+rem Файл cmd необходимо выполнять с правами Администратора WINDOWS
+rem перед установкой отредактировать строки с переменными окружения, выставить нужные значения
+rem POSTGRESQL_HOME - Путь к каталогу с программой psql (клиенсткому терминалу Postgres)
+rem USERLOG        - Пользователь оперативной БД логирования
+rem PASSLOG        - Пароль пользователя оперативной БД логирования
+rem DBNAME         - Имя базы данных оперативной БД логирования
+rem HOSTNAME        - Хост базы данных оперативной БД логирования
+rem PORTNUM        - Порт базы данных оперативной БД логирования
+chcp 1251
+set POSTGRESQL_HOME=C:\Program Files\PostgreSQL\16\bin
+set DBNAME=finline
+set HOSTNAME=localhost
+set PORTNUM=5432
+set USERLOG=*sslog
+set PASSLOG=*
+set USERARC=*ssarc
+set PASSARC=*
+set OLDPATH=%PATH%
+set PATH=%POSTGRESQL_HOME%;%PATH%
+md logs
+set PGPASSWORD=%PASSLOG%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERLOG% -L logs/install_sbaccesslog.log -f SBACCESSLOG/install_sbaccesslog.sql -v userlog='%USERLOG%' -v userarc='%USERARC%' -w >> ./error_log.txt 2>&1
+set PGPASSWORD=%PASSARC%
+psql -d %DBNAME% -h %HOSTNAME% -p %PORTNUM% -U %USERARC% -L logs/install_sbaccessarc.log -f SBACCESSARC/install_sbaccessarc.sql -w >> ./error_log.txt 2>&1
+rem очистка переменных окружения:
+set PGPASSWORD=
+set PASSLOG=
+set POSTGRESQL_HOME=
+set DBNAME=
+set HOSTNAME=
+set PORTNUM=
+set PATH=%OLDPATH%
+set OLDPATH=
+
+
+
+Написание небольшой программы на C# для переноса данных между базами MS SQL и PostgreSQL:
+
+Для того что бы можно было работать с PostgreSQL нужно проделать следующее: (https://dzen.ru/a/YAWa3aOgjAlvVq42).
+
+Для подключения PostgreSQL к C# требуется усатновить Npgsql.dll, для чего возможно два пути:
+
+Установка при помощи NuGetPkgManager. Скачивается и устанавливается пакет Npgsql
+Самостоятельная сборка Npgsql.dll. И мы воспользуемся именно этим методом
+Для чего необходимо:
+
+Скачать с сайта Github реппозиторий: Npgsql
+
+Распаковать, открыть через Visual Studio и произвести сборку проекта Npgsql из папки src, установив сверху не Debug, а Release
+
+В результате описанных выше процедур в папке: npgsql-4.1.7\src\Npgsql\bin\Release\net461\ окажется файл Npgsql.dll
+
+После чего этот файл необходимо скопировать в директорию с исходными кодами проекта, в котором будет использоваться соединение с PostgreSQL и в Обозревателе решений Visual Studio нажать на ссылки->добавить 
+ссылку в открывшемся окне нажимем Обзор и выбираем нашу Npgsql.dll
+
+
+В моём случае была использована сборка npgsql v4.1.14 (сначала пробовал на самой свежей версии на текущий момент - но при попытке произвести сборку проекта Npgsql в Visual Studio выдавало ошибки и Npgsql.dll не появлялся в папке).
+
+Однако и на этой версии npgsql v4.1.14 при попытке открытия соединения с базой падало в ошибку:
+
+	String connectionStringPG = "Server=localhost;Port=5432;Username=postgres;Password=b***;Database=finline";
+	NpgsqlConnection npgSqlConnection = new NpgsqlConnection(connectionStringPG);
+	npgSqlConnection.Open();
+
+Message	"Не удалось загрузить файл или сборку \"System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51\" либо одну из их зависимостей. Не удается найти указанный файл."	string
+
+FusionLog	"=== Информация о состоянии предварительной привязки ===\r\nЖурнал: DisplayName = System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51\n
+(Fully-specified)\r\nЖурнал: Appbase = file:///C:/Users/faa/source/repos/TestProject/TestProject/bin/Debug/\r\nЖурнал: Initial PrivatePath = NULL\r\nВызов сборки: Npgsql, Version=4.1.14.0, Culture=neutral, 
+PublicKeyToken=5d8b90d52f46fda7.\r\n===\r\nЖурнал: данная привязка начинается в контексте загрузки default.\r\nЖурнал: используется файл конфигурации приложения: 
+C:\\Users\\faa\\source\\repos\\TestProject\\TestProject\\bin\\Debug\\TestProject.exe.Config.\r\nЖурнал: используется файл конфигурации главного узла: \r\nЖурнал: используется файл конфигурации компьютера из 
+C:\\Windows\\Microsoft.NET\\Framework\\v4.0.30319\\config\\machine.config.\r\nЖурнал: в файле конфигурации приложения найдено перенаправление: из 4.2.0.1 в 4.2.0.1.\r\nЖурнал: ссылка после применения политики: 
+System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51\r\nЖурнал: данная привязка встречалась ранее и закончилась ошибкой hr = 0x80070002.\r\n"	string
+
+Вышел из положения закинув все остальные dll из папки проекта Npgsql в свой проект.
+
+
+Перенесены данные таблиц:
+
+1 - ACKNOWLEDGEMENT
+
+2 - CLIENT_MODULE_EVENTS
+
+3 - CM_TMP_EVENTS
+
+
+Анализ работы Джобов:
+
+1 - CLEAR_JOB_ACKNOWLEDGEMEN запускает функцию select clear_acknowledgement() по расписанию (Ежедневно, каждый час = 01, как я понял в час ночи)
+
+Функция:
+CREATE OR REPLACE FUNCTION sbaccesslog.clear_acknowledgement()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+VACKHISTORY INTEGER;
+BEGIN
+ BEGIN
+   SELECT PARAM_VALUE INTO STRICT VACKHISTORY
+     FROM CM_ALERT_PARAM
+    WHERE NAME = 'ACKNOWLEDGEMENT_HISTORY';
+   EXCEPTION WHEN NO_DATA_FOUND THEN VACKHISTORY:=3;
+ END;
+ DELETE FROM ACKNOWLEDGEMENT
+  WHERE EVENTTIME < date_trunc('day', clock_timestamp()) - (to_char(VACKHISTORY,'99999') || ' day')::interval;
+END;
+$function$
+;
+
+Сначала зачитываем значение PARAM_VALUE (равен 3) с именем ACKNOWLEDGEMENT_HISTORY из таблицы параметров CM_ALERT_PARAM и передаём его в VACKHISTORY.
+Затем удаляем все записи из таблицы ACKNOWLEDGEMENT удовлетворяющих условию EVENTTIME < date_trunc('day', clock_timestamp()) - (to_char(3,'99999') || ' day')::interval (То есть EVENTTIME < Текущая дата минус 3).
+
+
+То есть удаляются события из таблицы ACKNOWLEDGEMENT с датой в столбце EVENTTIME меньше трёх дней от текущей.
+
+
+2 - CLEAR_CM_HISTORY_JOB запускает функцию select clear_cm_history() по расписанию (Ежедневно, каждый час = 00, как я понял в двенадцать часов ночи)
+
+Функция:
+CREATE OR REPLACE FUNCTION sbaccesslog.clear_cm_history()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  vTimeout varchar(15) := 0;
+BEGIN
+  begin
+    select par.param_value into STRICT vTimeout
+    from cm_alert_param par
+    where par.name = 'ALERT_HISTORY_TIMEOUT';
+  exception
+    when NO_DATA_FOUND then vTimeout := '3';
+  end;
+  delete from cm_tmp_events
+  where date_trunc('day', part_date) < date_trunc('day', clock_timestamp() - (vTimeout || ' day')::interval);
+  delete from cm_alert_events
+  where date_trunc('day', part_date) < date_trunc('day', clock_timestamp() - (vTimeout || ' day')::interval);
+end;
+$function$
+
+Сначала зачитываем значение PARAM_VALUE (равен 3) с именем ALERT_HISTORY_TIMEOUT из таблицы параметров cm_alert_param и передаём его в vTimeout (если не найден то будет равен 3).
+Затем удаляем все записи из таблиц cm_tmp_events и cm_alert_events у которых поле part_date меньше чем текущая минус три дня (синтакиси немного отличается от первого джоба но суть такая же).
+
+
+3 - JOB_SBACCESSLOG_MOVE запускает функцию select move_partition(''CLIENT_MODULE_EVENTS'') (Ежедневно, каждые два часа = 00 и 12, как я понял в 24 часа ночи и в 12 часов дня)
+
+-- DROP FUNCTION sbaccesslog.move_partition(varchar, varchar, varchar, varchar);
+
+CREATE OR REPLACE FUNCTION sbaccesslog.move_partition(ptablename character varying, pcheckarchive character varying DEFAULT 'YES'::character varying, puserlog character varying DEFAULT 'sbaccesslog'::character varying, puserarc character varying DEFAULT 'sbaccessarc'::character varying)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+    -- pUserLog параметр явно устанавливается по умолчанию в момент компиляции функции в базу данных не предназначен для явного вызова.
+    -- pUserArc параметр явно устанавливается по умолчанию в момент компиляции функции в базу данных не предназначен для явного вызова.
+DECLARE
+
+  vDropPartDate       varchar(32);
+  vcreatepartdate     VARCHAR(32);
+  vQuery              varchar;
+  vdetachquery        varchar;
+  vLogPeriodCount     bigint;
+  vLogPeriodUnit      varchar(1);
+  vPartNamePeriod     bigint;
+  vPartUnit           varchar(1);
+  vLastPartDate       varchar(30);
+  vTs                 timestamp(0);
+  part RECORD;
+  cr RECORD;
+
+BEGIN
+  vTs := date_trunc('day', current_timestamp(0));
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vPartUnit, vPartNamePeriod
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'IntervalPartition_' || pTableName;
+
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vLogPeriodUnit, vLogPeriodCount
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'StorageTime_' || pTableName;
+
+  SELECT CASE
+  WHEN vLogPeriodUnit='M' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' month')::interval + '1 day'::interval, 'YYYYMMDDHH24')
+  WHEN vLogPeriodUnit='Y' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' year')::interval + '1 day'::interval, 'YYYYMMDDHH24')
+  ELSE TO_CHAR(vTs - (to_char(vLogPeriodCount + 1, '999999999') || ' day')::interval, 'YYYYMMDDHH24') END
+  INTO STRICT vDropPartDate;
+
+  -- Переносим старые партиции в архивную схему.
+  FOR part IN (select * from (
+                               SELECT
+                                               nmsp_parent.nspname AS parent_schema,
+                                               parent.relname      AS parent,
+                                               nmsp_child.nspname  AS child_schema,
+                                               child.relname       AS child
+                               FROM pg_inherits
+                                               JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                                               JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                                               JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                                               JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                               WHERE parent.relname='client_module_events'
+                               and nmsp_parent.nspname = pUserLog) pr
+                               LEFT OUTER JOIN partition_archive ar ON (PR.child = ar.PART_NAME)
+                               WHERE PR.parent = 'client_module_events' AND PR.child < ('p' || vDropPartDate)
+							   AND pCheckArchive = 'YES' AND ar.ARC_STATUS = 0
+                               order by pr.child)
+  LOOP
+    BEGIN
+
+      vdetachquery := 'ALTER TABLE '|| pUserLog || '.client_module_events detach partition ' || part.child;
+      select string_agg(altr.stmt, '; ')||';' as stmt into vquery
+        from (
+            SELECT 'alter index ' || pi.schemaname || '.' || pi.indexname || ' set tablespace arcindx' as stmt
+              FROM pg_inherits
+              JOIN pg_class parent ON pg_inherits.inhparent = parent.oid
+              JOIN pg_class child ON pg_inherits.inhrelid = child.oid
+              JOIN pg_namespace nmsp_parent ON nmsp_parent.oid = parent.relnamespace
+              JOIN pg_namespace nmsp_child ON nmsp_child.oid = child.relnamespace
+              join pg_indexes pi on pi.schemaname = nmsp_parent.nspname and child.relname = pi.tablename
+             WHERE parent.relname = 'client_module_events'
+               and nmsp_parent.nspname = pUserLog
+               and child.relname = part.child
+        )altr;
+
+      EXECUTE vdetachquery;
+      RAISE NOTICE 'exec: %',vdetachquery;
+
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+
+	  BEGIN
+		  vquery := 'ALTER TABLE ' || pUserLog || '.' || part.child || ' DROP CONSTRAINT ' || part.child || '_fk';
+		  EXECUTE vquery;
+		  RAISE NOTICE 'exec: %',vquery;
+	  EXCEPTION
+		  -- SQL state: 42704 ограничение не существует
+		  WHEN SQLSTATE '42704' THEN NULL;
+      END;
+
+	  vquery := 'ALTER TABLE '|| pUserLog ||'.'|| part.child || ' SET TABLESPACE arclob';
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+
+	  vquery := 'ALTER TABLE '||pUserLog||'.'|| part.child || ' SET SCHEMA ' ||pUserArc;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+
+	  vquery := 'ALTER TABLE ' || pUserArc ||'.'|| part.child || ' OWNER to ' || pUserArc;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+
+	  vquery := 'ALTER TABLE '||pUserArc ||'.client_module_events attach partition ' || pUserArc ||'.'|| part.child || '
+	  FOR VALUES FROM (''' || part.period_from || ''') TO (''' || part.period_to || ''')';
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+	  
+	  update partition_archive set arc_status = 1 where part_name = part.child;
+	END;
+  END LOOP;
+END;
+$function$
+;
+
+
+4 - JOB_SBACCESSLOG_PARTITION запускает функцию select replace_partition(''CLIENT_MODULE_EVENTS'') по расписанию (Ежедневно, каждые два часа = 01 и 13, как я понял в час ночи и в час дня)
+
+Функция:
+-- DROP FUNCTION sbaccesslog.replace_partition(varchar, varchar, varchar);
+
+CREATE OR REPLACE FUNCTION sbaccesslog.replace_partition(ptablename character varying, pcheckarchive character varying DEFAULT 'YES'::character varying, puserlog character varying DEFAULT 'sbaccesslog'::character varying)
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+-- pUserLog параметр явно устанавливается по умолчанию в момент компиляции функции в базу данных не предназначен для явного вызова.
+DECLARE
+  vDropPartDate       varchar(32);
+  vcreatepartdate     VARCHAR(32);
+  vQuery              varchar(2000);
+  vLogPeriodCount     bigint;
+  vLogPeriodUnit      varchar(1);
+  vPartNamePeriod     bigint;
+  vPartUnit           varchar(1);
+  vLastPartDate       varchar(30);
+  vInterval           varchar(32);
+  vPieceInterval      varchar(8);
+  vTs                 timestamp(0);
+  part RECORD;
+  cr RECORD;
+
+BEGIN
+  vTs := date_trunc('day', current_timestamp(0));
+
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vPartUnit, vPartNamePeriod
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'IntervalPartition_' || pTableName;
+
+  SELECT substr(f1.PARAM_VALUE,1,1), (substr(f1.PARAM_VALUE,2))::numeric
+    INTO STRICT vLogPeriodUnit, vLogPeriodCount
+    FROM ARCHIVER_PARAM f1
+    WHERE f1.NAME = 'StorageTime_' || pTableName;
+
+  SELECT CASE
+  WHEN vLogPeriodUnit='M' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' month')::interval + '1 day':: interval, 'YYYYMMDDHH24')
+  WHEN vLogPeriodUnit='Y' THEN  TO_CHAR(vTs - (to_char(vLogPeriodCount, '999999999') || ' year')::interval + '1 day':: interval, 'YYYYMMDDHH24')
+  ELSE TO_CHAR(vTs - (to_char(vLogPeriodCount + 1, '999999999') || ' day')::interval, 'YYYYMMDDHH24') END,
+  to_char(vPartNamePeriod*3, '999999999') || CASE WHEN vPartUnit='M' THEN  ' month' WHEN vPartUnit='Y' THEN  ' year' ELSE ' day' END,
+  case when vPartUnit='H' then ' hour' when vPartUnit='D' then ' day' when vPartUnit='Y' then ' year' else ' month' end
+  INTO STRICT vDropPartDate, vInterval, vPieceInterval;
+
+  -- Удаляем старые партиции.
+  FOR part IN (select * from (
+                               SELECT
+                                               nmsp_parent.nspname AS parent_schema,
+                                               parent.relname      AS parent,
+                                               nmsp_child.nspname  AS child_schema,
+                                               child.relname       AS child
+                               FROM pg_inherits
+                                               JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                                               JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                                               JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                                               JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                               WHERE parent.relname='client_module_events'
+                               and nmsp_parent.nspname = pUserLog) pr
+                               LEFT OUTER JOIN partition_archive ar ON (PR.child = ar.PART_NAME)
+                               WHERE PR.parent = 'client_module_events' AND PR.child < 'p' || vDropPartDate  and (pCheckArchive = 'NO' or ar.ARC_STATUS = 1)
+                               order by pr.child) LOOP
+    BEGIN
+      vquery := 'DROP TABLE '|| pUserLog || '.' || part.child;
+      EXECUTE vquery;
+      RAISE NOTICE 'exec: %',vquery;
+    EXCEPTION
+      -- SQL state: 42P01 таблица не существует
+      WHEN SQLSTATE '42P01' THEN NULL;
+    END;
+  END LOOP;
+  delete from partition_archive where arc_status = 1;
+
+  -- Проверяем дату последней партиции
+  SELECT SUBSTR(max(child.relname), 2) LAST_PARTITION
+  into STRICT vLastPartDate
+  FROM pg_inherits
+    JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+    JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+    JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+    JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+  WHERE parent.relname='client_module_events'
+  and nmsp_parent.nspname = pUserLog;
+
+  -- Если нет партиций, создадим одну на вчерашний день
+  if vLastPartDate is null then
+                vcreatepartdate := TO_CHAR(vTs, 'YYYYMMDDHH24');
+                vquery := 'CREATE TABLE '|| pUserLog ||'.P' || vcreatepartdate || ' PARTITION OF '|| pUserLog ||'.CLIENT_MODULE_EVENTS ' ||
+                               ' FOR VALUES FROM (''' || vTs - ('1 day')::interval ||
+                               ''') TO (''' || vTs || ''') tablespace SBCLIENTLOBDATA';
+                BEGIN
+                               EXECUTE vquery;
+                               RAISE NOTICE 'exec: %',vquery;
+                               -- создаем индексы для новой партиции
+                               vquery := 'CREATE INDEX ON '|| pUserLog || '.P' || vcreatepartdate || ' (event_id) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (messagetype) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (messageid, part_date) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || vcreatepartdate || ' (event_code_id) TABLESPACE SBCLIENTINDX';
+                               EXECUTE vquery;
+                               vquery := 'ALTER TABLE '|| pUserLog ||'.P' || vcreatepartdate || ' ADD CONSTRAINT P' || vcreatepartdate || '_FK FOREIGN KEY (event_code_id) REFERENCES '|| pUserLog ||'.cdeventcode(event_code_id) ON DELETE NO ACTION NOT DEFERRABLE INITIALLY IMMEDIATE';
+                               EXECUTE vquery;
+
+							   -- владелец партиции - владелец схемы (если pgAgent-job запущен от имени администратора)
+							   vquery := 'ALTER TABLE '|| pUserLog || '.P' || vcreatepartdate || ' OWNER to ' || pUserLog;
+							   EXECUTE vquery;
+                               RAISE NOTICE 'exec: %',vquery;
+
+							   insert into partition_archive (part_name, period_from, period_to, arc_status) values
+							   ('p' || vcreatepartdate,
+							    date_trunc('day', clock_timestamp()) - ('1 day')::interval,
+								date_trunc('day', clock_timestamp()),
+								0);
+                EXCEPTION
+				  -- SQL state: 42P07 таблица уже существует
+				  WHEN SQLSTATE '42P07' THEN NULL;
+				END;
+  end if;
+
+  -- Создаем новые партиции.
+    for cr in (select
+				tab.rownum,
+				TO_CHAR(TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char(tab.rownum*vPartNamePeriod, '999999999') || vPieceInterval)::interval, 'YYYYMMDDHH24') part_name,
+				TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char((tab.rownum-1)*vPartNamePeriod, '999999999') || vPieceInterval)::interval period_from,
+				TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char(tab.rownum*vPartNamePeriod, '999999999') || vPieceInterval)::interval period_to
+				from (
+				select row_number() over() rownum, *  from
+				(SELECT max(child.relname) LAST_PARTITION
+				FROM pg_inherits
+					JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+					JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+					JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+					JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+				WHERE parent.relname='client_module_events'
+				  and nmsp_parent.nspname = pUserLog) lp, pg_class o
+				  ) tab
+				where (TO_TIMESTAMP(substr(tab.LAST_PARTITION, 2), 'YYYYMMDDHH24') + (to_char((tab.rownum-1)*vPartNamePeriod, '999999999') || vPieceInterval)::interval - vTs) < vInterval::interval
+                -- условие нарезает партиции на 3 интервала хранения вперед
+    ) loop
+		vquery := 'CREATE TABLE '|| pUserLog ||'.P' || cr.part_name || ' PARTITION OF '|| pUserLog ||'.CLIENT_MODULE_EVENTS ' ||
+            ' FOR VALUES FROM (''' || cr.period_from || ''') TO (''' || cr.period_to || ''') tablespace SBCLIENTLOBDATA';
+		BEGIN
+			EXECUTE vquery;
+            RAISE NOTICE 'exec: %',vquery;
+            -- создаем индексы для новой партиции
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (event_id) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (messagetype) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (messageid, part_date) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'CREATE INDEX ON '|| pUserLog ||'.P' || cr.part_name || ' (event_code_id) TABLESPACE SBCLIENTINDX';
+            EXECUTE vquery;
+            vquery := 'ALTER TABLE ' || pUserLog || '.P' || cr.part_name || ' ADD CONSTRAINT P' || cr.part_name || '_FK FOREIGN KEY (event_code_id) REFERENCES '|| pUserLog ||'.cdeventcode(event_code_id) ON DELETE NO ACTION NOT DEFERRABLE INITIALLY IMMEDIATE';
+            EXECUTE vquery;
+
+			-- владелец партиции - владелец схемы (если pgAgent-job запущен от имени администратора)
+			vquery := 'ALTER TABLE '|| pUserLog ||'.P' || cr.part_name || ' OWNER to ' || pUserLog;
+			EXECUTE vquery;
+            RAISE NOTICE 'exec: %',vquery;
+
+			insert into partition_archive (part_name, period_from, period_to, arc_status)
+			values ('p' || cr.part_name, cr.period_from, cr.period_to, 0);
+        EXCEPTION
+			-- SQL state: 42P07 таблица уже существует
+			WHEN SQLSTATE '42P07' THEN NULL;
+		END;
+    end loop;
+
+END;
+$function$
+;
+
+16.10.2024 - Разбор 3-го и 4-го джобов решил отложить, так как займёт много времени и сил.
+
+
+5 - JOB_ALERT_EVENT запускает функцию select write_alert_event() по расписанию (Ежедневно, каждую минуту)
+
+-- DROP FUNCTION sbaccesslog.write_alert_event();
+
+CREATE OR REPLACE FUNCTION sbaccesslog.write_alert_event()
+ RETURNS void
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+  vTrnTimeout varchar(10) := '0';
+BEGIN
+  -- vTrnTimeout таймаут транзакции
+  begin
+    select par.param_value into STRICT vTrnTimeout
+    from cm_alert_param par
+    where par.name = 'TRN_TIMEOUT';
+  exception
+    when NO_DATA_FOUND then vTrnTimeout := '15';
+  end;
+
+  -- статуc PROCESSING для всех записей с типом:
+  -- ОШИБКА,
+  -- ЗАВЕРШЕНИЕ ТРАНЗАКЦИИ,
+  -- НАЧАЛО ТРАНЗАКЦИИ старше vTrnTimeout минут
+  -- начало транзакции, для которых есть конец транзакции
+  update cm_tmp_events e
+  set status = 'P'
+  where e.alert_flag in ('ERR','EWB','EWC','EWBM')
+  or (e.alert_flag in ('SWB','SWC') and e.part_date < (clock_timestamp() - (vTrnTimeout || ' minute')::interval))
+  or (e.alert_flag in ('SWB','SWC') and exists (SELECT 1 from cm_tmp_events ee where ee.alert_flag in ('EWB','EWC','EWBM') and ee.correlationid = e.messageid));
+
+  -- копируем в отчет все записи со статусом PROCESSING и типом ОШИБКА
+  insert into cm_alert_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype)
+  SELECT e.event_id, e.part_date, e.messageid, e.correlationid, e.event_code_id, e.messagetype
+  from cm_tmp_events e
+  where e.alert_flag = 'ERR'
+  and e.status = 'P';
+
+  -- копируем в отчет все записи со статусом PROCESSING и типом НАЧАЛО ТРАНЗАКЦИИ, для которых нет ответа и нет ошибки
+  insert into cm_alert_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype)
+  SELECT se.event_id, se.part_date, se.messageid, se.correlationid, se.event_code_id, se.messagetype
+  from cm_tmp_events se
+  where se.alert_flag in ('SWB','SWC')
+  and not exists (SELECT 1 from
+                 cm_tmp_events ee
+                 where ee.alert_flag in ('EWB','EWC')
+                 and ee.correlationid = se.messageid
+                 and ee.status = 'P')
+  and not exists (select 1 from
+                 cm_tmp_events er
+                 where er.alert_flag = 'ERR'
+                 and er.messageid = se.messageid
+                 and er.status = 'P')
+  --вставляем только новые message id
+  and not exists (select 1 from
+                cm_alert_events ce
+                where ce.messageid=se.messageid)
+  and se.status = 'P';
+
+  -- копируем в отчет записи со статусом P и типом - техническая квитанция
+ insert into cm_alert_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype)
+  SELECT se.event_id, se.part_date, se.messageid, se.correlationid, se.event_code_id, se.messagetype
+  from cm_tmp_events se
+  where se.alert_flag ='EWBM'
+  and not exists (SELECT 1 from
+                cm_alert_events ce
+                where ce.messageid=se.messageid)
+  and se.status = 'P';
+
+  -- Обновляем event_code_id сообщений у которых статус Processing и message id которых уже есть в таблице cm_alert_events
+  update cm_alert_events event
+  set event_code_id = (SELECT event_code_id from cm_tmp_events tmp
+                        where tmp.messageid=event.messageid
+                        and tmp.alert_flag = 'EWBM'
+                        and tmp.status='P')
+  where event.messageid=(select messageid from cm_tmp_events tmp
+                        where tmp.messageid=event.messageid
+                        and tmp.alert_flag = 'EWBM'
+                        and tmp.status='P');
+
+  -- удаляем все записи со статуcом PROCESSING
+  delete from cm_tmp_events e
+  where e.status = 'P';
+end;
+$function$
+;
+
+
+Сначала зачитываем значение PARAM_VALUE (равен 15) с именем TRN_TIMEOUT из таблицы параметров cm_alert_param и передаём его в vTrnTimeout (если не найден то будет равен 15).
+Дальше не шмогла уже, увы))
+
+
+Вход на веб интерфейс:
+http://127.0.0.1:8080/ClientModule/alert/index
+
+D:\@FINLINE\UI-08.000.41\conf\
+application.yml
+environments.production.dataSources.dataSource.dialect: org.hibernate.dialect.PostgreSQLDialect
+environments.production.dataSources.arch.url: jdbc:postgresql://127.0.0.1:5432/finline
+environments.production.dataSources.dataSource.username: sbaccesslog
+environments.production.dataSources.dataSource.url: jdbc:postgresql://127.0.0.1:5432/finline
+environments.production.dataSources.dataSource.password: 6uBBS/u5eYg7B7gRAPTmVEhGErlvhNZ+
+environments.production.dataSources.arch.dialect: org.hibernate.dialect.PostgreSQLDialect
+environments.production.dataSources.arch.username: sbaccessarc
+environments.production.dataSources.arch.driverClassName: org.postgresql.Driver
+environments.production.dataSources.arch.password: ZSe1f1kvEH+uNWnz9IMNK3m7X49U7b4p
+environments.production.dataSources.dataSource.driverClassName: org.postgresql.Driver
+
+
+Код проекта на C#:
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Data.Common;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+using Npgsql;
+
+
+namespace TestProject
+{
+    public partial class Form1 : Form
+    {
+        private SqlConnection sqlConnection = null;
+        private NpgsqlConnection npgSqlConnection = null;
+        private SqlDataAdapter adapter = null;
+        private DataSet dataSet = null;
+        private SqlDataReader reader = null;
+        private DataTable dt;
+
+        public Form1()
+        {
+            InitializeComponent();
+        }
+
+        private async void Form1_Load(object sender, EventArgs e)
+        {
+            //Подключение к MS SQL
+
+            string connectionString = @"Data Source=192.168.100.11,1433; Network Library=DBMSSOCN; Initial Catalog=SBACCESSLOG;User ID=sa;Password=admin45bank821";
+            sqlConnection = new SqlConnection(connectionString);
+            await sqlConnection.OpenAsync(); 
+
+            //Подключение к MS SQL
+
+
+            //Подключение к PostrgeSQL
+
+            String connectionStringPG = "Server=localhost;Port=5432;Username=postgres;Password=bank821;Database=finline";
+            npgSqlConnection = new NpgsqlConnection(connectionStringPG);
+            await npgSqlConnection.OpenAsync();
+
+            //Подключение к PostrgeSQL   
+        }
+
+        private void выходToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (sqlConnection != null && sqlConnection.State != ConnectionState.Closed)
+                sqlConnection.Close();
+            if (npgSqlConnection != null && npgSqlConnection.State != ConnectionState.Closed)
+                npgSqlConnection.Close();
+                dt = null;
+                reader = null;
+                Application.Exit();
+        }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (sqlConnection != null && sqlConnection.State != ConnectionState.Closed)
+                sqlConnection.Close();
+            if (npgSqlConnection != null && npgSqlConnection.State != ConnectionState.Closed)
+                npgSqlConnection.Close();
+            dt = null;
+                reader = null;
+        }
+
+        private void button4_Click(object sender, EventArgs e)
+
+        {
+            try
+            {
+                SqlCommand command = new SqlCommand("SELECT RQUID,BODYMESSAGE,EVENTTIME,CALCULATEDID FROM SBACCESSLOG.ACKNOWLEDGEMENT", sqlConnection);
+                adapter = new SqlDataAdapter(command);
+
+                dataSet = new DataSet();
+
+                adapter.Fill(dataSet, "SBACCESSLOG.ACKNOWLEDGEMENT");
+
+                dataGridView1.DataSource = dataSet.Tables["SBACCESSLOG.ACKNOWLEDGEMENT"];
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Ошибка!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void button5_Click(object sender, EventArgs e)
+        {
+            NpgsqlCommand npgSqlCommand = new NpgsqlCommand("SELECT rquid,bodymessage,eventtime,calculatedid FROM sbaccesslog.acknowledgement", npgSqlConnection);
+            NpgsqlDataReader npgSqlDataReader = npgSqlCommand.ExecuteReader();
+
+            DataTable dtable = new DataTable();
+            dtable.Load(npgSqlDataReader);
+            DataSet dset = new DataSet();
+            dset.Tables.Add(dtable);
+            dataGridView2.DataSource = dset;
+            dataGridView2.DataMember = "Table1";
+        }
+
+        private void button6_Click(object sender, EventArgs e)
+        {
+            SqlCommand command = new SqlCommand("SELECT RQUID,BODYMESSAGE,EVENTTIME,CALCULATEDID FROM SBACCESSLOG.ACKNOWLEDGEMENT", sqlConnection);
+
+            reader = command.ExecuteReader();
+
+            dt = new DataTable();
+
+            dt.Columns.Add("RQUID", typeof(string));
+            dt.Columns.Add("BODYMESSAGE", typeof(string));
+            dt.Columns.Add("EVENTTIME", typeof(DateTime));
+            dt.Columns.Add("CALCULATEDID", typeof(string));
+
+            dt.Load(reader);
+
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                NpgsqlCommand npgSqlCommand = new NpgsqlCommand("INSERT INTO sbaccesslog.acknowledgement(rquid, eventtime, bodymessage, calculatedid) VALUES (@RQUID, @EVENTTIME, @BODYMESSAGE, @CALCULATEDID)", npgSqlConnection);
+                npgSqlCommand.Parameters.AddWithValue("RQUID", dr["RQUID"]);
+                npgSqlCommand.Parameters.AddWithValue("EVENTTIME", dr["EVENTTIME"]);
+                npgSqlCommand.Parameters.AddWithValue("BODYMESSAGE", dr["BODYMESSAGE"]);
+                npgSqlCommand.Parameters.AddWithValue("CALCULATEDID", dr["CALCULATEDID"]);
+
+                npgSqlCommand.ExecuteNonQuery();
+            }            
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                SqlCommand command = new SqlCommand("SELECT EVENT_ID,PART_DATE,EVENTTIME,MESSAGEID,CORRELATIONID,EVENT_CODE_ID,EVENT_MESSAGE,F20,F108,BODYMESSAGE,EXCEPTIONFLAG,EXCEPTIONOBJECT,MESSAGETYPE,EDNO,EDDATE,KIO_UID,KIO_SENDTIME,KIO_RQID,FILENAME,KIO_CORRUID,KIO_CHECKUID FROM SBACCESSLOG.CLIENT_MODULE_EVENTS", sqlConnection);
+                adapter = new SqlDataAdapter(command);
+
+                dataSet = new DataSet();
+
+                adapter.Fill(dataSet, "SBACCESSLOG.CLIENT_MODULE_EVENTS");
+
+                dataGridView3.DataSource = dataSet.Tables["SBACCESSLOG.CLIENT_MODULE_EVENTS"];
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Ошибка!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            NpgsqlCommand npgSqlCommand = new NpgsqlCommand("SELECT event_id,part_date,eventtime,messageid,correlationid,event_code_id,event_message,f20,f108,bodymessage,exceptionflag,exceptionobject,messagetype,edno,eddate,kio_uid,kio_sendtime,kio_rqid,filename,kio_corruid,kio_checkuid FROM sbaccesslog.client_module_events", npgSqlConnection);
+            NpgsqlDataReader npgSqlDataReader = npgSqlCommand.ExecuteReader();
+
+            DataTable dtable = new DataTable();
+            dtable.Load(npgSqlDataReader);
+            DataSet dset = new DataSet();
+            dset.Tables.Add(dtable);
+            dataGridView4.DataSource = dset;
+            dataGridView4.DataMember = "Table1";
+        }
+
+        private void button8_Click(object sender, EventArgs e)
+        {
+            SqlCommand command = new SqlCommand("SELECT EVENT_ID,PART_DATE,EVENTTIME,MESSAGEID,CORRELATIONID,EVENT_CODE_ID,EVENT_MESSAGE,F20,F108,BODYMESSAGE,EXCEPTIONFLAG,EXCEPTIONOBJECT,MESSAGETYPE,EDNO,EDDATE,KIO_UID,KIO_SENDTIME,KIO_RQID,FILENAME,KIO_CORRUID,KIO_CHECKUID FROM SBACCESSLOG.CLIENT_MODULE_EVENTS", sqlConnection);
+
+            reader = command.ExecuteReader();
+
+            dt = new DataTable();
+
+            dt.Columns.Add("EVENT_ID", typeof(int));
+            dt.Columns.Add("PART_DATE", typeof(DateTime));
+            dt.Columns.Add("EVENTTIME", typeof(DateTime));
+            dt.Columns.Add("MESSAGEID", typeof(string));
+            dt.Columns.Add("CORRELATIONID", typeof(string));
+            dt.Columns.Add("EVENT_CODE_ID", typeof(int));
+            dt.Columns.Add("EVENT_MESSAGE", typeof(string));
+            dt.Columns.Add("F20", typeof(string));
+            dt.Columns.Add("F108", typeof(string));
+            dt.Columns.Add("BODYMESSAGE", typeof(string));
+            dt.Columns.Add("EXCEPTIONFLAG", typeof(int));
+            dt.Columns.Add("EXCEPTIONOBJECT", typeof(string));
+            dt.Columns.Add("MESSAGETYPE", typeof(int));
+            dt.Columns.Add("EDNO", typeof(string));
+            dt.Columns.Add("EDDATE", typeof(DateTime));
+            dt.Columns.Add("KIO_UID", typeof(string));
+            dt.Columns.Add("KIO_SENDTIME", typeof(string));
+            dt.Columns.Add("KIO_RQID", typeof(string));
+            dt.Columns.Add("FILENAME", typeof(string));
+            dt.Columns.Add("KIO_CORRUID", typeof(string));
+            dt.Columns.Add("KIO_CHECKUID", typeof(string));
+
+
+            dt.Load(reader);
+
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                NpgsqlCommand npgSqlCommand = new NpgsqlCommand("INSERT INTO sbaccesslog.client_module_events(event_id, part_date, eventtime, messageid, correlationid, event_code_id, event_message, f20, f108, bodymessage, exceptionflag, exceptionobject, messagetype, edno, eddate, kio_uid, kio_sendtime, kio_rqid, filename, kio_corruid, kio_checkuid) VALUES (@EVENT_ID, @PART_DATE, @EVENTTIME, @MESSAGEID, @CORRELATIONID, @EVENT_CODE_ID, @EVENT_MESSAGE, @F20, @F108, @BODYMESSAGE, @EXCEPTIONFLAG, @EXCEPTIONOBJECT, @MESSAGETYPE, @EDNO, @EDDATE, @KIO_UID, @KIO_SENDTIME, @KIO_RQID, @FILENAME, @KIO_CORRUID, @KIO_CHECKUID)", npgSqlConnection);
+                npgSqlCommand.Parameters.AddWithValue("EVENT_ID", dr["EVENT_ID"]);
+                npgSqlCommand.Parameters.AddWithValue("PART_DATE", dr["PART_DATE"]);
+                npgSqlCommand.Parameters.AddWithValue("EVENTTIME", dr["EVENTTIME"]);
+                npgSqlCommand.Parameters.AddWithValue("MESSAGEID", dr["MESSAGEID"]);
+                npgSqlCommand.Parameters.AddWithValue("CORRELATIONID", dr["CORRELATIONID"]);
+                npgSqlCommand.Parameters.AddWithValue("EVENT_CODE_ID", dr["EVENT_CODE_ID"]);
+                npgSqlCommand.Parameters.AddWithValue("EVENT_MESSAGE", dr["EVENT_MESSAGE"]);
+                npgSqlCommand.Parameters.AddWithValue("F20", dr["F20"]);
+                npgSqlCommand.Parameters.AddWithValue("F108", dr["F108"]);
+                npgSqlCommand.Parameters.AddWithValue("BODYMESSAGE", dr["BODYMESSAGE"]);
+                npgSqlCommand.Parameters.AddWithValue("EXCEPTIONFLAG", dr["EXCEPTIONFLAG"]);
+                npgSqlCommand.Parameters.AddWithValue("EXCEPTIONOBJECT", dr["EXCEPTIONOBJECT"]);
+                npgSqlCommand.Parameters.AddWithValue("MESSAGETYPE", dr["MESSAGETYPE"]);
+                npgSqlCommand.Parameters.AddWithValue("EDNO", dr["EDNO"]);
+                npgSqlCommand.Parameters.AddWithValue("EDDATE", dr["EDDATE"]);
+                npgSqlCommand.Parameters.AddWithValue("KIO_UID", dr["KIO_UID"]);
+                npgSqlCommand.Parameters.AddWithValue("KIO_SENDTIME", dr["KIO_SENDTIME"]);
+                npgSqlCommand.Parameters.AddWithValue("KIO_RQID", dr["KIO_RQID"]);
+                npgSqlCommand.Parameters.AddWithValue("FILENAME", dr["FILENAME"]);
+                npgSqlCommand.Parameters.AddWithValue("KIO_CORRUID", dr["KIO_CORRUID"]);
+                npgSqlCommand.Parameters.AddWithValue("KIO_CHECKUID", dr["KIO_CHECKUID"]);
+
+                npgSqlCommand.ExecuteNonQuery();
+            }
+        }
+
+        private void button3_Click(object sender, EventArgs e)
+
+        {
+            try
+            {
+                SqlCommand command = new SqlCommand("SELECT event_id, part_date, messageid, correlationid, event_code_id, messagetype, alert_flag, status FROM SBACCESSLOG.CM_TMP_EVENTS", sqlConnection);
+                adapter = new SqlDataAdapter(command);
+
+                dataSet = new DataSet();
+
+                adapter.Fill(dataSet, "SBACCESSLOG.CM_TMP_EVENTS");
+
+                dataGridView5.DataSource = dataSet.Tables["SBACCESSLOG.CM_TMP_EVENTS"];
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Ошибка!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void button7_Click(object sender, EventArgs e)
+        {
+            NpgsqlCommand npgSqlCommand = new NpgsqlCommand("SELECT event_id, part_date, messageid, correlationid, event_code_id, messagetype, alert_flag, status FROM sbaccesslog.CM_TMP_EVENTS", npgSqlConnection);
+            NpgsqlDataReader npgSqlDataReader = npgSqlCommand.ExecuteReader();
+
+            DataTable dtable = new DataTable();
+            dtable.Load(npgSqlDataReader);
+            DataSet dset = new DataSet();
+            dset.Tables.Add(dtable);
+            dataGridView6.DataSource = dset;
+            dataGridView6.DataMember = "Table1";
+        }
+
+        private void button9_Click(object sender, EventArgs e)
+        {
+            SqlCommand command = new SqlCommand("SELECT event_id, part_date, messageid, correlationid, event_code_id, messagetype, alert_flag, status FROM SBACCESSLOG.CM_TMP_EVENTS", sqlConnection);
+
+            reader = command.ExecuteReader();
+
+            dt = new DataTable();
+
+            dt.Columns.Add("event_id", typeof(int));
+            dt.Columns.Add("part_date", typeof(DateTime));
+            dt.Columns.Add("messageid", typeof(string));
+            dt.Columns.Add("correlationid", typeof(string));
+            dt.Columns.Add("event_code_id", typeof(int));
+            dt.Columns.Add("messagetype", typeof(int));
+            dt.Columns.Add("alert_flag", typeof(string));
+            dt.Columns.Add("status", typeof(string));
+
+            dt.Load(reader);
+
+
+            foreach (DataRow dr in dt.Rows)
+            {
+                NpgsqlCommand npgSqlCommand = new NpgsqlCommand("INSERT INTO sbaccesslog.cm_tmp_events(event_id, part_date, messageid, correlationid, event_code_id, messagetype, alert_flag, status) VALUES (@event_id, @part_date, @messageid, @correlationid, @event_code_id, @messagetype, @alert_flag, @status)", npgSqlConnection);
+                npgSqlCommand.Parameters.AddWithValue("event_id", dr["event_id"]);
+                npgSqlCommand.Parameters.AddWithValue("part_date", dr["part_date"]);
+                npgSqlCommand.Parameters.AddWithValue("messageid", dr["messageid"]);
+                npgSqlCommand.Parameters.AddWithValue("correlationid", dr["correlationid"]);
+                npgSqlCommand.Parameters.AddWithValue("event_code_id", dr["event_code_id"]);
+                npgSqlCommand.Parameters.AddWithValue("messagetype", dr["messagetype"]);
+                npgSqlCommand.Parameters.AddWithValue("alert_flag", dr["alert_flag"]);
+                npgSqlCommand.Parameters.AddWithValue("status", dr["status"]);
+
+                npgSqlCommand.ExecuteNonQuery();
+            }
+        }
+
+    }
+}
+
+
+
+
